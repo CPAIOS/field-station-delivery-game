@@ -1,4 +1,12 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+
+// Tree types with costs and profits
+const treeTypes = {
+    budget: { cost: 30, sellPrice: 60, name: 'Budget Saplings', emoji: '🌱' },
+    standard: { cost: 50, sellPrice: 100, name: 'Standard Trees', emoji: '🌳' },
+    premium: { cost: 75, sellPrice: 150, name: 'Premium Trees', emoji: '🎄' }
+};
 
 // Game state
 const gameState = {
@@ -7,7 +15,9 @@ const gameState = {
     trees: 12,
     treesOnFire: 0,
     distance: 0,
-    earnings: 0,
+    cash: 1000, // Starting cash
+    investment: 0, // Amount spent on current load
+    treeType: 'standard', // Current tree type selected
     speed: 0,
     targetSpeed: 0.3,
     truckPosition: 0
@@ -27,24 +37,42 @@ const camera = new THREE.PerspectiveCamera(
 
 const renderer = new THREE.WebGLRenderer({
     canvas: document.getElementById('gameCanvas'),
-    antialias: true
+    antialias: true,
+    powerPreference: 'high-performance'
 });
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 
-// Lighting
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+// Enhanced Lighting
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-directionalLight.position.set(5, 10, 5);
+// Main sun light
+const directionalLight = new THREE.DirectionalLight(0xfff5e6, 1.2);
+directionalLight.position.set(10, 20, 10);
 directionalLight.castShadow = true;
+directionalLight.shadow.mapSize.width = 2048;
+directionalLight.shadow.mapSize.height = 2048;
 directionalLight.shadow.camera.left = -50;
 directionalLight.shadow.camera.right = 50;
 directionalLight.shadow.camera.top = 50;
 directionalLight.shadow.camera.bottom = -50;
+directionalLight.shadow.camera.near = 0.5;
+directionalLight.shadow.camera.far = 100;
+directionalLight.shadow.bias = -0.0001;
 scene.add(directionalLight);
+
+// Hemisphere light for better sky/ground lighting
+const hemiLight = new THREE.HemisphereLight(0x87CEEB, 0x6B8E23, 0.4);
+scene.add(hemiLight);
+
+// Add some atmospheric perspective with better fog
+scene.fog = new THREE.Fog(0x87CEEB, 30, 150);
 
 // Truck object
 let truck;
@@ -166,24 +194,60 @@ const createTruck = () => {
     return truckGroup;
 };
 
-// Trees on flatbed
+// Enhanced Trees on flatbed
 const trees = [];
 const createTree = (x, z) => {
     const treeGroup = new THREE.Group();
 
-    // Trunk
-    const trunkGeometry = new THREE.CylinderGeometry(0.15, 0.2, 1.5, 8);
-    const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x4a2511 });
+    // Better trunk with texture-like appearance
+    const trunkGeometry = new THREE.CylinderGeometry(0.18, 0.22, 1.8, 12);
+    const trunkMaterial = new THREE.MeshStandardMaterial({
+        color: 0x4a2511,
+        roughness: 0.9,
+        metalness: 0.1
+    });
     const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-    trunk.position.y = 0.75;
+    trunk.position.y = 0.9;
+    trunk.castShadow = true;
+    trunk.receiveShadow = true;
     treeGroup.add(trunk);
 
-    // Foliage
-    const foliageGeometry = new THREE.ConeGeometry(0.8, 2, 8);
-    const foliageMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
-    const foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
-    foliage.position.y = 2.5;
-    treeGroup.add(foliage);
+    // Multi-layer foliage for depth
+    const foliageMaterial = new THREE.MeshStandardMaterial({
+        color: 0x2d5a2d,
+        roughness: 0.8,
+        metalness: 0.0,
+        flatShading: false
+    });
+
+    // Bottom layer
+    const foliage1 = new THREE.Mesh(
+        new THREE.ConeGeometry(0.9, 1.2, 8),
+        foliageMaterial
+    );
+    foliage1.position.y = 2.2;
+    foliage1.castShadow = true;
+    treeGroup.add(foliage1);
+
+    // Middle layer
+    const foliage2 = new THREE.Mesh(
+        new THREE.ConeGeometry(0.7, 1.0, 8),
+        foliageMaterial.clone()
+    );
+    foliage2.material.color.setHex(0x3a6e3a);
+    foliage2.position.y = 2.8;
+    foliage2.castShadow = true;
+    treeGroup.add(foliage2);
+
+    // Top layer
+    const foliage3 = new THREE.Mesh(
+        new THREE.ConeGeometry(0.5, 0.8, 8),
+        foliageMaterial.clone()
+    );
+    foliage3.material.color.setHex(0x228B22);
+    foliage3.position.y = 3.4;
+    foliage3.castShadow = true;
+    treeGroup.add(foliage3);
 
     treeGroup.position.set(x, 1.5, z);
     treeGroup.userData = { onFire: false, health: 100, fireParticles: null };
@@ -207,31 +271,63 @@ const createTreesOnTruck = () => {
     });
 };
 
-// Road
+// Enhanced Road with better details
 const roadSegments = [];
 const createRoadSegment = (zPos) => {
     const roadGroup = new THREE.Group();
 
-    // Road surface
+    // Main road surface with better material
     const roadGeometry = new THREE.PlaneGeometry(12, 20);
-    const roadMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+    const roadMaterial = new THREE.MeshStandardMaterial({
+        color: 0x2a2a2a,
+        roughness: 0.9,
+        metalness: 0.0
+    });
     const road = new THREE.Mesh(roadGeometry, roadMaterial);
     road.rotation.x = -Math.PI / 2;
     road.receiveShadow = true;
     roadGroup.add(road);
 
-    // Lane markings
+    // Road edge lines (yellow/white)
+    const edgeGeometry = new THREE.BoxGeometry(0.2, 0.12, 20);
+    const yellowMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFFDD00,
+        emissive: 0xFFDD00,
+        emissiveIntensity: 0.2
+    });
+
+    const leftEdge = new THREE.Mesh(edgeGeometry, yellowMaterial);
+    leftEdge.position.set(-6, 0.06, 0);
+    roadGroup.add(leftEdge);
+
+    const rightEdge = new THREE.Mesh(edgeGeometry, yellowMaterial);
+    rightEdge.position.set(6, 0.06, 0);
+    roadGroup.add(rightEdge);
+
+    // Lane markings - dashed white lines
     for (let i = -8; i < 12; i += 4) {
-        const lineGeometry = new THREE.BoxGeometry(0.3, 0.1, 2);
-        const lineMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFFF });
-        const line = new THREE.Mesh(lineGeometry, lineMaterial);
-        line.position.set(0, 0.05, i);
-        roadGroup.add(line);
+        // Center lane dividers
+        for (let lane = -2.5; lane <= 2.5; lane += 2.5) {
+            if (lane !== 0) continue; // Only center line for now
+            const lineGeometry = new THREE.BoxGeometry(0.25, 0.11, 2.5);
+            const lineMaterial = new THREE.MeshStandardMaterial({
+                color: 0xFFFFFF,
+                emissive: 0xFFFFFF,
+                emissiveIntensity: 0.1
+            });
+            const line = new THREE.Mesh(lineGeometry, lineMaterial);
+            line.position.set(lane, 0.055, i);
+            roadGroup.add(line);
+        }
     }
 
-    // Grass on sides
+    // Enhanced grass with variation
     const grassGeometry = new THREE.PlaneGeometry(20, 20);
-    const grassMaterial = new THREE.MeshStandardMaterial({ color: 0x3a7c3a });
+    const grassMaterial = new THREE.MeshStandardMaterial({
+        color: 0x3a7c3a,
+        roughness: 1.0,
+        metalness: 0.0
+    });
 
     const grassLeft = new THREE.Mesh(grassGeometry, grassMaterial);
     grassLeft.rotation.x = -Math.PI / 2;
@@ -245,44 +341,74 @@ const createRoadSegment = (zPos) => {
     grassRight.receiveShadow = true;
     roadGroup.add(grassRight);
 
+    // Add some roadside details
+    if (Math.random() < 0.3) {
+        // Random rocks/debris on roadside
+        for (let i = 0; i < 2; i++) {
+            const rockSize = 0.3 + Math.random() * 0.4;
+            const rockGeometry = new THREE.DodecahedronGeometry(rockSize, 0);
+            const rockMaterial = new THREE.MeshStandardMaterial({
+                color: 0x666666,
+                roughness: 0.9
+            });
+            const rock = new THREE.Mesh(rockGeometry, rockMaterial);
+            rock.position.set(
+                (Math.random() < 0.5 ? -1 : 1) * (10 + Math.random() * 8),
+                rockSize / 2,
+                (Math.random() - 0.5) * 18
+            );
+            rock.rotation.set(
+                Math.random() * Math.PI,
+                Math.random() * Math.PI,
+                Math.random() * Math.PI
+            );
+            rock.castShadow = true;
+            rock.receiveShadow = true;
+            roadGroup.add(rock);
+        }
+    }
+
     roadGroup.position.z = zPos;
     return roadGroup;
 };
 
 // Traffic - simple cars based on truck geometry
 const trafficCars = [];
+const lastCarSpawnTime = [0, 0, 0, 0]; // Track last spawn time per lane
 const createTrafficCar = (lane, zPos) => {
     const carGroup = new THREE.Group();
 
     // Just make a simple car that DEFINITELY points the right way
     // Front box at NEGATIVE Z (like truck cab)
 
-    const colors = [0xDC143C, 0x4169E1, 0xFFD700, 0x32CD32, 0x8A2BE2, 0xFF1493, 0x00CED1, 0xFF6347, 0x9370DB];
+    const colors = [0xDC143C, 0x4169E1, 0xFFD700, 0x32CD32, 0x8A2BE2, 0xFF1493, 0x00CED1, 0xFF6347, 0x9370DB, 0x000000, 0xFFFFFF, 0xC0C0C0];
     const carColor = colors[Math.floor(Math.random() * colors.length)];
     const bodyMaterial = new THREE.MeshStandardMaterial({
         color: carColor,
-        metalness: 0.5,
-        roughness: 0.4
+        metalness: 0.7,
+        roughness: 0.2,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.1
     });
 
-    // SINGLE SOLID LOWER BODY - no gaps!
+    // SINGLE SOLID LOWER BODY - full length
     const bodyGeometry = new THREE.BoxGeometry(2, 0.9, 4.5);
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
     body.position.set(0, 0.9, 0);
     body.castShadow = true;
     carGroup.add(body);
 
-    // Cabin/roof section - centered
-    const cabinGeometry = new THREE.BoxGeometry(1.8, 0.8, 2.5);
+    // Cabin/roof section - AT THE BACK (positive Z) so it points away from you
+    const cabinGeometry = new THREE.BoxGeometry(1.8, 0.8, 2.2);
     const cabin = new THREE.Mesh(cabinGeometry, bodyMaterial);
-    cabin.position.set(0, 1.7, 0);
+    cabin.position.set(0, 1.7, 1);  // Shifted to BACK (positive Z)
     cabin.castShadow = true;
     carGroup.add(cabin);
 
-    // Roof
-    const roofGeometry = new THREE.BoxGeometry(1.6, 0.2, 2.3);
+    // Roof - also at back
+    const roofGeometry = new THREE.BoxGeometry(1.6, 0.2, 2);
     const roof = new THREE.Mesh(roofGeometry, bodyMaterial);
-    roof.position.set(0, 2.2, 0);
+    roof.position.set(0, 2.2, 1);  // Shifted to BACK (positive Z)
     roof.castShadow = true;
     carGroup.add(roof);
 
@@ -294,38 +420,38 @@ const createTrafficCar = (lane, zPos) => {
         metalness: 0.9
     });
 
-    // Windshield at front (negative Z)
+    // Windshield at back of car (positive Z) - rear-facing
     const windshieldGeometry = new THREE.BoxGeometry(1.7, 0.7, 0.1);
     const windshield = new THREE.Mesh(windshieldGeometry, windowMaterial);
-    windshield.position.set(0, 1.7, -1.2);
+    windshield.position.set(0, 1.7, 2);  // At back with cabin
     carGroup.add(windshield);
 
-    // Rear window at back (positive Z)
-    const rearWindow = new THREE.Mesh(windshieldGeometry, windowMaterial);
-    rearWindow.position.set(0, 1.7, 1.2);
-    carGroup.add(rearWindow);
+    // Front window (negative Z)
+    const frontWindow = new THREE.Mesh(windshieldGeometry, windowMaterial);
+    frontWindow.position.set(0, 1.7, 0);  // Front of cabin
+    carGroup.add(frontWindow);
 
-    // Headlights at NEGATIVE Z (front)
-    const headlightGeometry = new THREE.BoxGeometry(0.4, 0.25, 0.15);
-    const headlightMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFFDD });
-
-    const leftHeadlight = new THREE.Mesh(headlightGeometry, headlightMaterial);
-    leftHeadlight.position.set(-0.7, 0.9, -3.1);  // NEGATIVE Z = front
-    carGroup.add(leftHeadlight);
-
-    const rightHeadlight = new THREE.Mesh(headlightGeometry, headlightMaterial);
-    rightHeadlight.position.set(0.7, 0.9, -3.1);  // NEGATIVE Z = front
-    carGroup.add(rightHeadlight);
-
-    // Taillights at POSITIVE Z (back)
+    // Taillights at POSITIVE Z (back) - RED lights pointing away from you
+    const lightGeometry = new THREE.BoxGeometry(0.4, 0.25, 0.15);
     const taillightMaterial = new THREE.MeshBasicMaterial({ color: 0xFF0000 });
-    const leftTaillight = new THREE.Mesh(headlightGeometry, taillightMaterial);
-    leftTaillight.position.set(-0.7, 0.9, 3.1);  // POSITIVE Z = back
+
+    const leftTaillight = new THREE.Mesh(lightGeometry, taillightMaterial);
+    leftTaillight.position.set(-0.7, 0.9, 3.1);  // POSITIVE Z = back (away from you)
     carGroup.add(leftTaillight);
 
-    const rightTaillight = new THREE.Mesh(headlightGeometry, taillightMaterial);
-    rightTaillight.position.set(0.7, 0.9, 3.1);  // POSITIVE Z = back
+    const rightTaillight = new THREE.Mesh(lightGeometry, taillightMaterial);
+    rightTaillight.position.set(0.7, 0.9, 3.1);  // POSITIVE Z = back (away from you)
     carGroup.add(rightTaillight);
+
+    // Headlights at NEGATIVE Z (front) - WHITE lights facing you (but you shouldn't see these)
+    const headlightMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFFDD });
+    const leftHeadlight = new THREE.Mesh(lightGeometry, headlightMaterial);
+    leftHeadlight.position.set(-0.7, 0.9, -3.1);  // NEGATIVE Z = front (toward you)
+    carGroup.add(leftHeadlight);
+
+    const rightHeadlight = new THREE.Mesh(lightGeometry, headlightMaterial);
+    rightHeadlight.position.set(0.7, 0.9, -3.1);  // NEGATIVE Z = front (toward you)
+    carGroup.add(rightHeadlight);
 
     // Wheels
     const wheelGeometry = new THREE.CylinderGeometry(0.45, 0.45, 0.35, 16);
@@ -349,62 +475,76 @@ const createTrafficCar = (lane, zPos) => {
 
     const lanePositions = [-3.5, -1, 1, 3.5];
     carGroup.position.set(lanePositions[lane], 0, zPos);
-    carGroup.rotation.y = 0; // NO rotation - simple geometry
+    carGroup.rotation.y = 0; // No rotation
     carGroup.userData = { speed: 0.1 + Math.random() * 0.05 }; // Slower than truck
 
     return carGroup;
 };
 
-// Meteors
+// Enhanced Meteors with better visuals
 const meteors = [];
 const createMeteor = () => {
     const meteorGroup = new THREE.Group();
 
-    // Main meteor body - super bright and fiery
-    const meteorGeometry = new THREE.SphereGeometry(0.7, 12, 12);
+    // Main meteor body - jagged and rocky
+    const meteorGeometry = new THREE.IcosahedronGeometry(0.8, 1); // More detailed shape
     const meteorMaterial = new THREE.MeshStandardMaterial({
-        color: 0xFF3300,
+        color: 0x2a1a0f,
         emissive: 0xFF3300,
-        emissiveIntensity: 2.0,
-        roughness: 0.3
+        emissiveIntensity: 1.5,
+        roughness: 0.9,
+        metalness: 0.1
     });
     const meteor = new THREE.Mesh(meteorGeometry, meteorMaterial);
     meteor.castShadow = true;
     meteorGroup.add(meteor);
 
-    // Bright glowing core
-    const coreGeometry = new THREE.SphereGeometry(0.5, 8, 8);
+    // Bright glowing core with pulsing effect
+    const coreGeometry = new THREE.SphereGeometry(0.6, 16, 16);
     const coreMaterial = new THREE.MeshBasicMaterial({
-        color: 0xFFFFAA,
+        color: 0xFFFF00,
         transparent: true,
-        opacity: 0.9
+        opacity: 0.8
     });
     const core = new THREE.Mesh(coreGeometry, coreMaterial);
     meteorGroup.add(core);
 
-    // Outer glow
-    const glowGeometry = new THREE.SphereGeometry(1, 12, 12);
-    const glowMaterial = new THREE.MeshBasicMaterial({
-        color: 0xFF6600,
-        transparent: true,
-        opacity: 0.4
-    });
-    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-    meteorGroup.add(glow);
-
-    // Fire trail particles
-    for (let i = 0; i < 8; i++) {
-        const trailGeometry = new THREE.SphereGeometry(0.2 - i * 0.02, 6, 6);
-        const trailMaterial = new THREE.MeshBasicMaterial({
-            color: i % 2 === 0 ? 0xFF4500 : 0xFFA500,
+    // Multiple glow layers for depth
+    for (let i = 0; i < 3; i++) {
+        const glowGeometry = new THREE.SphereGeometry(1.0 + i * 0.3, 16, 16);
+        const glowMaterial = new THREE.MeshBasicMaterial({
+            color: i === 0 ? 0xFF6600 : i === 1 ? 0xFF4500 : 0xFF3300,
             transparent: true,
-            opacity: 0.7 - i * 0.08
+            opacity: 0.3 - i * 0.08
+        });
+        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+        meteorGroup.add(glow);
+    }
+
+    // Enhanced fire trail with more particles
+    for (let i = 0; i < 15; i++) {
+        const size = 0.25 - i * 0.015;
+        const trailGeometry = new THREE.SphereGeometry(size, 8, 8);
+        const colors = [0xFFFF00, 0xFFAA00, 0xFF6600, 0xFF4500, 0xFF3300];
+        const trailMaterial = new THREE.MeshBasicMaterial({
+            color: colors[Math.floor(i / 3) % colors.length],
+            transparent: true,
+            opacity: 0.8 - i * 0.045
         });
         const trail = new THREE.Mesh(trailGeometry, trailMaterial);
-        trail.position.y = i * 0.5;
+        trail.position.set(
+            (Math.random() - 0.5) * 0.3,
+            i * 0.4,
+            (Math.random() - 0.5) * 0.3
+        );
         trail.userData = { offset: i };
         meteorGroup.add(trail);
     }
+
+    // Add point light for dynamic lighting
+    const meteorLight = new THREE.PointLight(0xFF6600, 2, 10);
+    meteorLight.castShadow = true;
+    meteorGroup.add(meteorLight);
 
     // Spawn meteors at 45 degree angle - high and ahead
     const startX = (Math.random() - 0.5) * 15;
@@ -423,9 +563,9 @@ const createMeteor = () => {
     const dy = targetY - startHeight;
     const dz = targetZ - startZ;
 
-    // Normalize and set speed
+    // Normalize and set speed - slower for easier gameplay
     const distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
-    const speed = 0.4 + Math.random() * 0.2;
+    const speed = 0.25 + Math.random() * 0.15;
 
     meteorGroup.userData = {
         velocity: new THREE.Vector3(
@@ -438,36 +578,45 @@ const createMeteor = () => {
     return meteorGroup;
 };
 
-// Puddles
+// Enhanced Puddles with better reflective appearance
 const puddles = [];
 const createPuddle = (zPos) => {
     const puddleGroup = new THREE.Group();
 
-    // Main puddle - much more visible
-    const puddleGeometry = new THREE.CircleGeometry(2.5, 32);
+    // Main puddle - highly reflective water
+    const puddleGeometry = new THREE.CircleGeometry(2.8, 32);
     const puddleMaterial = new THREE.MeshStandardMaterial({
         color: 0x1E90FF,
-        metalness: 0.8,
-        roughness: 0.2,
+        metalness: 0.95,
+        roughness: 0.05,
         transparent: true,
-        opacity: 0.9
+        opacity: 0.85,
+        emissive: 0x004488,
+        emissiveIntensity: 0.2
     });
     const puddle = new THREE.Mesh(puddleGeometry, puddleMaterial);
     puddle.rotation.x = -Math.PI / 2;
-    puddle.position.y = 0.06;
+    puddle.position.y = 0.07;
     puddleGroup.add(puddle);
 
-    // Bright blue glow effect
-    const glowGeometry = new THREE.CircleGeometry(3, 32);
-    const glowMaterial = new THREE.MeshBasicMaterial({
-        color: 0x00BFFF,
-        transparent: true,
-        opacity: 0.4
-    });
-    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-    glow.rotation.x = -Math.PI / 2;
-    glow.position.y = 0.05;
-    puddleGroup.add(glow);
+    // Multiple glow layers for depth
+    for (let i = 0; i < 3; i++) {
+        const glowGeometry = new THREE.CircleGeometry(3 + i * 0.5, 32);
+        const glowMaterial = new THREE.MeshBasicMaterial({
+            color: i === 0 ? 0x00BFFF : i === 1 ? 0x1E90FF : 0x4169E1,
+            transparent: true,
+            opacity: 0.3 - i * 0.08
+        });
+        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+        glow.rotation.x = -Math.PI / 2;
+        glow.position.y = 0.05 - i * 0.01;
+        puddleGroup.add(glow);
+    }
+
+    // Add subtle point light
+    const puddleLight = new THREE.PointLight(0x00BFFF, 0.5, 5);
+    puddleLight.position.y = 0.5;
+    puddleGroup.add(puddleLight);
 
     puddleGroup.position.set(
         (Math.random() - 0.5) * 8,
@@ -582,14 +731,10 @@ window.addEventListener('keyup', (e) => {
     keys[e.key.toLowerCase()] = false;
 });
 
-// UI Elements
-const startBtn = document.getElementById('startBtn');
-const restartBtn = document.getElementById('restartBtn');
-const startScreen = document.getElementById('startScreen');
-const endScreen = document.getElementById('endScreen');
-const treeCountEl = document.getElementById('treeCount');
-const distanceEl = document.getElementById('distance');
-const earningsEl = document.getElementById('earnings');
+// UI Elements - will be initialized after DOM loads
+let purchaseScreen, startBtn, restartBtn, startScreen, endScreen;
+let treeCountEl, distanceEl, earningsEl, levelDisplayEl, budgetAmountEl;
+let budgetOption, standardOption, premiumOption;
 
 // Initialize
 const init = () => {
@@ -609,12 +754,29 @@ const init = () => {
     camera.lookAt(0, 0, -20);
 };
 
+// Purchase trees
+const purchaseTrees = (type) => {
+    const treeInfo = treeTypes[type];
+    const totalCost = treeInfo.cost * 12;
+
+    if (gameState.cash < totalCost) {
+        alert('Not enough cash!');
+        return;
+    }
+
+    gameState.treeType = type;
+    gameState.investment = totalCost;
+    gameState.cash -= totalCost;
+
+    purchaseScreen.classList.add('hidden');
+    startScreen.classList.remove('hidden');
+};
+
 // Start game
 const startGame = () => {
     gameState.isPlaying = true;
     gameState.trees = 12;
     gameState.distance = 0;
-    gameState.earnings = 0;
     gameState.speed = gameState.targetSpeed;
     gameState.treesOnFire = 0;
 
@@ -674,21 +836,38 @@ const endGame = () => {
     gameState.isPlaying = false;
 
     const treesDelivered = gameState.trees;
-    const earnings = treesDelivered * 50 + (treesDelivered === 12 ? 200 : 0);
-    gameState.earnings = earnings;
+    const treeInfo = treeTypes[gameState.treeType];
+    const revenue = treesDelivered * treeInfo.sellPrice;
+    const profit = revenue - gameState.investment;
+    const perfectBonus = treesDelivered === 12 ? 200 : 0;
+    const totalEarnings = profit + perfectBonus;
+
+    gameState.cash += revenue + perfectBonus;
+
+    // Level up if profitable
+    if (profit > 0) {
+        gameState.level++;
+        // Increase difficulty
+        gameState.targetSpeed = Math.min(0.5, 0.3 + (gameState.level - 1) * 0.03);
+    }
 
     document.getElementById('resultText').textContent =
-        `You delivered ${treesDelivered} out of 12 trees!`;
+        `Level ${gameState.level} Complete! You delivered ${treesDelivered} out of 12 ${treeInfo.name}!`;
     document.getElementById('earningsText').textContent =
-        `Earned: $${earnings}${treesDelivered === 12 ? ' (Perfect Delivery Bonus!)' : ''}`;
+        `Investment: $${gameState.investment} | Revenue: $${revenue}${perfectBonus > 0 ? ' + $200 bonus' : ''}\n` +
+        `Profit: ${profit >= 0 ? '+' : ''}$${totalEarnings} | Total Cash: $${gameState.cash}`;
 
     endScreen.classList.remove('hidden');
+    updateUI();
 };
 
 const updateUI = () => {
+    if (!treeCountEl) return; // Wait for DOM to be ready
     treeCountEl.textContent = gameState.trees;
     distanceEl.textContent = Math.floor(gameState.distance);
-    earningsEl.textContent = gameState.earnings;
+    earningsEl.textContent = gameState.cash;
+    levelDisplayEl.textContent = gameState.level;
+    budgetAmountEl.textContent = gameState.cash;
 };
 
 // Game loop
@@ -708,11 +887,11 @@ const animate = () => {
         gameState.truckPosition += 0.15;
     }
 
-    // Speed controls - gas and brake
+    // Speed controls - gas and brake (can now stop completely)
     if (keys['arrowup'] || keys['w']) {
         gameState.speed = Math.min(0.5, gameState.speed + 0.01); // Gas - accelerate
     } else if (keys['arrowdown'] || keys['s']) {
-        gameState.speed = Math.max(0.1, gameState.speed - 0.02); // Brake - decelerate
+        gameState.speed = Math.max(0, gameState.speed - 0.02); // Brake - can stop completely
     } else {
         // Gradually return to target speed
         if (gameState.speed < gameState.targetSpeed) {
@@ -736,12 +915,25 @@ const animate = () => {
         }
     });
 
-    // Spawn traffic AHEAD on the road - very close so you can see them immediately
-    if (Math.random() < 0.02 && trafficCars.length < 6) {
-        const car = createTrafficCar(Math.floor(Math.random() * 4), -20);  // Right in view
-        trafficCars.push(car);
-        scene.add(car);
-        console.log('Car spawned at Z:', car.position.z, 'Truck at Z:', truck.position.z, 'Camera at:', camera.position.z);
+    // Spawn traffic with increasing density per level
+    const trafficChance = 0.015 + (gameState.level - 1) * 0.005;
+    const maxTraffic = 4 + Math.floor(gameState.level / 2); // More traffic at higher levels
+    if (Math.random() < trafficChance && trafficCars.length < maxTraffic) {
+        const lane = Math.floor(Math.random() * 4);
+        const currentTime = Date.now();
+
+        // Only spawn if lane hasn't had a car in last 3 seconds AND no car currently in lane near spawn point
+        const laneIsClear = !trafficCars.some(car => {
+            const carLane = Math.round((car.position.x + 4.5) / 2.5); // Calculate which lane car is in
+            return carLane === lane && car.position.z > -60 && car.position.z < -10;
+        });
+
+        if (laneIsClear && (currentTime - lastCarSpawnTime[lane] > 3000)) {
+            const car = createTrafficCar(lane, -40 - Math.random() * 20);  // Spawn further ahead
+            trafficCars.push(car);
+            scene.add(car);
+            lastCarSpawnTime[lane] = currentTime;
+        }
     }
 
     trafficCars.forEach((car, index) => {
@@ -808,9 +1000,10 @@ const animate = () => {
         }
     });
 
-    // Spawn meteors rarely - dramatic events (scales with level)
-    const meteorChance = 0.008 + (gameState.level - 1) * 0.003;
-    if (Math.random() < meteorChance && meteors.length < 5) {
+    // Spawn meteors with increasing frequency per level
+    const meteorChance = 0.003 + (gameState.level - 1) * 0.002;
+    const maxMeteors = 3 + Math.floor(gameState.level / 3); // More meteors at higher levels
+    if (Math.random() < meteorChance && meteors.length < maxMeteors) {
         const meteor = createMeteor();
         meteors.push(meteor);
         scene.add(meteor);
@@ -1046,16 +1239,45 @@ const animate = () => {
     renderer.render(scene, camera);
 };
 
-// Event listeners
-startBtn.addEventListener('click', startGame);
-restartBtn.addEventListener('click', startGame);
+// Start
+init();
+animate();
+
+// Event listeners - wait for DOM to be fully loaded
+window.addEventListener('DOMContentLoaded', () => {
+    // Initialize UI elements
+    purchaseScreen = document.getElementById('purchaseScreen');
+    startBtn = document.getElementById('startBtn');
+    restartBtn = document.getElementById('restartBtn');
+    startScreen = document.getElementById('startScreen');
+    endScreen = document.getElementById('endScreen');
+    treeCountEl = document.getElementById('treeCount');
+    distanceEl = document.getElementById('distance');
+    earningsEl = document.getElementById('earnings');
+    levelDisplayEl = document.getElementById('levelDisplay');
+    budgetAmountEl = document.getElementById('budgetAmount');
+    budgetOption = document.getElementById('budgetOption');
+    standardOption = document.getElementById('standardOption');
+    premiumOption = document.getElementById('premiumOption');
+
+    // Add event listeners
+    budgetOption.addEventListener('click', () => purchaseTrees('budget'));
+    standardOption.addEventListener('click', () => purchaseTrees('standard'));
+    premiumOption.addEventListener('click', () => purchaseTrees('premium'));
+
+    startBtn.addEventListener('click', startGame);
+    restartBtn.addEventListener('click', () => {
+        endScreen.classList.add('hidden');
+        purchaseScreen.classList.remove('hidden');
+        updateUI();
+    });
+
+    // Initial UI update
+    updateUI();
+});
 
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
-
-// Start
-init();
-animate();

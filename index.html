@@ -112,6 +112,66 @@
             font-size: 18px;
             text-align: center;
         }
+
+        #purchaseScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(26, 58, 82, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            pointer-events: all;
+        }
+
+        .tree-option {
+            background: rgba(255, 255, 255, 0.1);
+            border: 3px solid white;
+            border-radius: 12px;
+            padding: 20px 30px;
+            margin: 15px;
+            width: 400px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .tree-option:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
+
+        .tree-option h3 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .tree-option p {
+            font-size: 16px;
+            margin: 5px 0;
+        }
+
+        .profit-info {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 2px solid rgba(255, 255, 255, 0.3);
+            font-size: 14px;
+            color: #90EE90;
+        }
+
+        #budgetDisplay {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            font-size: 32px;
+            font-weight: bold;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px 30px;
+            border-radius: 8px;
+        }
     </style>
 </head>
 <body>
@@ -119,25 +179,59 @@
 
     <div id="ui">
         <div id="hud">
+            <div class="hud-item">Level: <span id="levelDisplay">1</span></div>
             <div class="hud-item">Trees: <span id="treeCount">12</span></div>
             <div class="hud-item">Distance: <span id="distance">0</span>m</div>
-            <div class="hud-item">$<span id="earnings">0</span></div>
+            <div class="hud-item">Cash: $<span id="earnings">1000</span></div>
         </div>
     </div>
 
-    <div id="startScreen">
+    <div id="purchaseScreen">
+        <div id="budgetDisplay">Budget: $<span id="budgetAmount">1000</span></div>
+        <h1>🌳 Select Your Tree Inventory 🌳</h1>
+        <p style="font-size: 18px; margin-bottom: 30px;">Choose 12 trees to purchase and deliver</p>
+
+        <div class="tree-option" id="budgetOption">
+            <h3>🌱 Budget Saplings</h3>
+            <p><strong>Cost:</strong> $30/tree × 12 = $360</p>
+            <p><strong>Sell Price:</strong> $60/tree</p>
+            <p class="profit-info">
+                ✓ Break even: 6 trees<br>
+                ✓ Max profit: $360 (all 12 delivered)<br>
+                ⚠️ Lower risk, lower reward
+            </p>
+        </div>
+
+        <div class="tree-option" id="standardOption">
+            <h3>🌳 Standard Trees</h3>
+            <p><strong>Cost:</strong> $50/tree × 12 = $600</p>
+            <p><strong>Sell Price:</strong> $100/tree</p>
+            <p class="profit-info">
+                ✓ Break even: 6 trees<br>
+                ✓ Max profit: $600 (all 12 delivered)<br>
+                ⚖️ Balanced risk and reward
+            </p>
+        </div>
+
+        <div class="tree-option" id="premiumOption">
+            <h3>🎄 Premium Trees</h3>
+            <p><strong>Cost:</strong> $75/tree × 12 = $900</p>
+            <p><strong>Sell Price:</strong> $150/tree</p>
+            <p class="profit-info">
+                ✓ Break even: 6 trees<br>
+                ✓ Max profit: $900 (all 12 delivered)<br>
+                🔥 High risk, high reward!
+            </p>
+        </div>
+    </div>
+
+    <div id="startScreen" class="hidden">
         <h1>🚚 Meteor Delivery Challenge 🌳</h1>
         <p>Deliver trees for Field Station Farms through a meteor shower!</p>
         <p><strong>Controls:</strong> Arrow Keys or WASD</p>
         <p>← → / A D: Steer | ↑ ↓ / W S: Gas & Brake</p>
         <p>Dodge meteors, avoid traffic, and drive through puddles to put out fires!</p>
         <button id="startBtn">Start Delivery</button>
-        <div id="instructions">
-            <p style="margin-top: 30px; font-size: 16px; opacity: 0.8;">
-                💰 Earn $50 per tree delivered<br>
-                🔥 Bonus $200 for perfect delivery
-            </p>
-        </div>
     </div>
 
     <div id="endScreen" class="hidden">
