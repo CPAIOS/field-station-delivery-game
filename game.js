@@ -162,7 +162,7 @@ const createTruck = () => {
     });
 
     truckGroup.position.set(0, 0, 0);
-    truckGroup.rotation.y = 0; // Face the opposite direction
+    truckGroup.rotation.y = 0;
     return truckGroup;
 };
 
@@ -249,144 +249,107 @@ const createRoadSegment = (zPos) => {
     return roadGroup;
 };
 
-// Traffic - completely redesigned cars
+// Traffic - simple cars based on truck geometry
 const trafficCars = [];
 const createTrafficCar = (lane, zPos) => {
     const carGroup = new THREE.Group();
 
-    const colors = [0xDC143C, 0x4169E1, 0xFFD700, 0x32CD32, 0x8A2BE2, 0xFFFFFF, 0x2F4F4F, 0xFF6347];
+    // Just make a simple car that DEFINITELY points the right way
+    // Front box at NEGATIVE Z (like truck cab)
+
+    const colors = [0xDC143C, 0x4169E1, 0xFFD700, 0x32CD32, 0x8A2BE2, 0xFF1493, 0x00CED1, 0xFF6347, 0x9370DB];
     const carColor = colors[Math.floor(Math.random() * colors.length)];
     const bodyMaterial = new THREE.MeshStandardMaterial({
         color: carColor,
-        metalness: 0.6,
+        metalness: 0.5,
         roughness: 0.4
     });
 
-    // Under carriage
-    const underGeometry = new THREE.BoxGeometry(2, 0.3, 4.2);
-    const underMaterial = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
-    const under = new THREE.Mesh(underGeometry, underMaterial);
-    under.position.y = 0.5;
-    carGroup.add(under);
-
-    // Main body (rounded edges via multiple boxes)
-    const bodyGeometry = new THREE.BoxGeometry(2.2, 0.9, 4.5);
+    // SINGLE SOLID LOWER BODY - no gaps!
+    const bodyGeometry = new THREE.BoxGeometry(2, 0.9, 4.5);
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.position.y = 1.1;
+    body.position.set(0, 0.9, 0);
     body.castShadow = true;
     carGroup.add(body);
 
-    // Body top edge (to round it)
-    const topEdgeGeometry = new THREE.BoxGeometry(2, 0.2, 4.5);
-    const topEdge = new THREE.Mesh(topEdgeGeometry, bodyMaterial);
-    topEdge.position.y = 1.6;
-    topEdge.castShadow = true;
-    carGroup.add(topEdge);
+    // Cabin/roof section - centered
+    const cabinGeometry = new THREE.BoxGeometry(1.8, 0.8, 2.5);
+    const cabin = new THREE.Mesh(cabinGeometry, bodyMaterial);
+    cabin.position.set(0, 1.7, 0);
+    cabin.castShadow = true;
+    carGroup.add(cabin);
 
-    // Cabin/roof
-    const roofGeometry = new THREE.BoxGeometry(1.9, 0.9, 2.3);
+    // Roof
+    const roofGeometry = new THREE.BoxGeometry(1.6, 0.2, 2.3);
     const roof = new THREE.Mesh(roofGeometry, bodyMaterial);
-    roof.position.set(0, 2.1, -0.2);
+    roof.position.set(0, 2.2, 0);
     roof.castShadow = true;
     carGroup.add(roof);
 
-    // Roof top (rounded)
-    const roofTopGeometry = new THREE.BoxGeometry(1.7, 0.2, 2.2);
-    const roofTop = new THREE.Mesh(roofTopGeometry, bodyMaterial);
-    roofTop.position.set(0, 2.6, -0.2);
-    roofTop.castShadow = true;
-    carGroup.add(roofTop);
-
     // Windows
     const windowMaterial = new THREE.MeshStandardMaterial({
-        color: 0x1a1a1a,
+        color: 0x222222,
         transparent: true,
         opacity: 0.7,
         metalness: 0.9
     });
 
-    // Front windshield
-    const frontWindowGeometry = new THREE.BoxGeometry(1.8, 0.8, 0.1);
-    const frontWindow = new THREE.Mesh(frontWindowGeometry, windowMaterial);
-    frontWindow.position.set(0, 2.1, 1);
-    carGroup.add(frontWindow);
+    // Windshield at front (negative Z)
+    const windshieldGeometry = new THREE.BoxGeometry(1.7, 0.7, 0.1);
+    const windshield = new THREE.Mesh(windshieldGeometry, windowMaterial);
+    windshield.position.set(0, 1.7, -1.2);
+    carGroup.add(windshield);
 
-    // Rear window
-    const rearWindow = new THREE.Mesh(frontWindowGeometry, windowMaterial);
-    rearWindow.position.set(0, 2.1, -1.4);
+    // Rear window at back (positive Z)
+    const rearWindow = new THREE.Mesh(windshieldGeometry, windowMaterial);
+    rearWindow.position.set(0, 1.7, 1.2);
     carGroup.add(rearWindow);
 
-    // Side windows
-    const sideWindowGeometry = new THREE.BoxGeometry(0.1, 0.8, 1.8);
-    const leftWindow = new THREE.Mesh(sideWindowGeometry, windowMaterial);
-    leftWindow.position.set(-1, 2.1, -0.2);
-    carGroup.add(leftWindow);
-
-    const rightWindow = new THREE.Mesh(sideWindowGeometry, windowMaterial);
-    rightWindow.position.set(1, 2.1, -0.2);
-    carGroup.add(rightWindow);
-
-    // Hood (front of car - NEGATIVE Z like truck cab)
-    const hoodGeometry = new THREE.BoxGeometry(2.1, 0.3, 1);
-    const hood = new THREE.Mesh(hoodGeometry, bodyMaterial);
-    hood.position.set(0, 1.2, -2);  // Front at NEGATIVE Z
-    carGroup.add(hood);
-
-    // Trunk (back of car - POSITIVE Z like truck flatbed)
-    const trunkGeometry = new THREE.BoxGeometry(2.1, 0.3, 0.8);
-    const trunk = new THREE.Mesh(trunkGeometry, bodyMaterial);
-    trunk.position.set(0, 1.2, 2.1);  // Back at POSITIVE Z
-    carGroup.add(trunk);
-
-    // Headlights (front of car NEGATIVE Z like truck headlights)
-    const headlightGeometry = new THREE.BoxGeometry(0.3, 0.2, 0.1);
+    // Headlights at NEGATIVE Z (front)
+    const headlightGeometry = new THREE.BoxGeometry(0.4, 0.25, 0.15);
     const headlightMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFFDD });
 
     const leftHeadlight = new THREE.Mesh(headlightGeometry, headlightMaterial);
-    leftHeadlight.position.set(-0.7, 1, -2.55);  // Front at NEGATIVE Z
+    leftHeadlight.position.set(-0.7, 0.9, -3.1);  // NEGATIVE Z = front
     carGroup.add(leftHeadlight);
 
     const rightHeadlight = new THREE.Mesh(headlightGeometry, headlightMaterial);
-    rightHeadlight.position.set(0.7, 1, -2.55);  // Front at NEGATIVE Z
+    rightHeadlight.position.set(0.7, 0.9, -3.1);  // NEGATIVE Z = front
     carGroup.add(rightHeadlight);
 
-    // Taillights (back of car POSITIVE Z - facing toward camera)
+    // Taillights at POSITIVE Z (back)
     const taillightMaterial = new THREE.MeshBasicMaterial({ color: 0xFF0000 });
     const leftTaillight = new THREE.Mesh(headlightGeometry, taillightMaterial);
-    leftTaillight.position.set(-0.7, 1, 2.55);  // Back at POSITIVE Z
+    leftTaillight.position.set(-0.7, 0.9, 3.1);  // POSITIVE Z = back
     carGroup.add(leftTaillight);
 
     const rightTaillight = new THREE.Mesh(headlightGeometry, taillightMaterial);
-    rightTaillight.position.set(0.7, 1, 2.55);  // Back at POSITIVE Z
+    rightTaillight.position.set(0.7, 0.9, 3.1);  // POSITIVE Z = back
     carGroup.add(rightTaillight);
 
-    // Wheels with rims
+    // Wheels
     const wheelGeometry = new THREE.CylinderGeometry(0.45, 0.45, 0.35, 16);
     const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x0a0a0a });
     const rimGeometry = new THREE.CylinderGeometry(0.25, 0.25, 0.36, 8);
     const rimMaterial = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.8 });
 
     const wheelPositions = [
-        [-1.15, 0.45, 1.6], [1.15, 0.45, 1.6],   // Front
-        [-1.15, 0.45, -1.6], [1.15, 0.45, -1.6]  // Back
+        [-1.1, 0.45, -1.5],  // Front left (negative Z = front)
+        [1.1, 0.45, -1.5],   // Front right
+        [-1.1, 0.45, 1.5],   // Back left (positive Z = back)
+        [1.1, 0.45, 1.5]     // Back right
     ];
 
     wheelPositions.forEach(pos => {
         const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
         wheel.rotation.z = Math.PI / 2;
         wheel.position.set(...pos);
-        wheel.castShadow = true;
         carGroup.add(wheel);
-
-        const rim = new THREE.Mesh(rimGeometry, rimMaterial);
-        rim.rotation.z = Math.PI / 2;
-        rim.position.set(...pos);
-        carGroup.add(rim);
     });
 
     const lanePositions = [-3.5, -1, 1, 3.5];
     carGroup.position.set(lanePositions[lane], 0, zPos);
-    carGroup.rotation.y = 0; // NO rotation - built same as truck
+    carGroup.rotation.y = 0; // NO rotation - simple geometry
     carGroup.userData = { speed: 0.1 + Math.random() * 0.05 }; // Slower than truck
 
     return carGroup;
