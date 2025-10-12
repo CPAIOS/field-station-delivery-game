@@ -3,9 +3,9 @@ import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/
 
 // Tree types with costs and profits
 const treeTypes = {
-    budget: { cost: 30, sellPrice: 60, name: 'Budget Saplings', emoji: '🌱' },
-    standard: { cost: 50, sellPrice: 100, name: 'Standard Trees', emoji: '🌳' },
-    premium: { cost: 75, sellPrice: 150, name: 'Premium Trees', emoji: '🎄' }
+    budget: { cost: 30, sellPrice: 60, name: 'Green Giant', emoji: '🌲' },
+    standard: { cost: 50, sellPrice: 100, name: 'Emerald Green', emoji: '🌲' },
+    premium: { cost: 75, sellPrice: 150, name: 'American Pillar', emoji: '🌲' }
 };
 
 // Difficulty progression by level
