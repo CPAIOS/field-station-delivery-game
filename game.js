@@ -8,6 +8,37 @@ const treeTypes = {
     premium: { cost: 75, sellPrice: 150, name: 'Premium Trees', emoji: '🎄' }
 };
 
+// Difficulty progression by level
+const getDifficultyConfig = (level) => {
+    return {
+        trafficChance: Math.min(0.12, 0.03 + (level - 1) * 0.01),
+        meteorChance: level < 2 ? 0 : Math.min(0.07, 0.01 + (level - 2) * 0.01),
+        puddleChance: Math.min(0.12, 0.03 + (level - 1) * 0.01),
+        monsterChance: level < 3 ? 0 : Math.min(0.015, 0.005 + (level - 3) * 0.002),
+        zombieChance: level < 4 ? 0 : Math.min(0.003, 0.001 + (level - 4) * 0.0005), // Zombies start at level 4
+        maxTraffic: 8 + Math.floor(level / 2),
+        maxMeteors: level < 2 ? 0 : Math.min(5, 1 + Math.floor(level / 2)),
+        maxMonsters: level < 3 ? 0 : Math.min(3, 1 + Math.floor(level / 3)),
+        targetSpeed: Math.min(0.5, 0.3 + (level - 1) * 0.03)
+    };
+};
+
+// High score management
+const HIGH_SCORE_KEY = 'fieldStationHighScores';
+const getHighScores = () => {
+    const scores = localStorage.getItem(HIGH_SCORE_KEY);
+    return scores ? JSON.parse(scores) : [];
+};
+
+const saveHighScore = (scoreData) => {
+    const scores = getHighScores();
+    scores.push(scoreData);
+    scores.sort((a, b) => b.score - a.score);
+    const topScores = scores.slice(0, 10); // Keep top 10
+    localStorage.setItem(HIGH_SCORE_KEY, JSON.stringify(topScores));
+    return topScores;
+};
+
 // Game state
 const gameState = {
     isPlaying: false,
@@ -20,13 +51,316 @@ const gameState = {
     treeType: 'standard', // Current tree type selected
     speed: 0,
     targetSpeed: 0.3,
-    truckPosition: 0
+    truckPosition: 0,
+    score: 0,
+    currentRoundScore: 0,
+    totalTreeHealth: 1200, // 12 trees * 100 health each
+    startTime: 0
 };
 
 // Scene setup
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB); // Sky blue
 scene.fog = new THREE.Fog(0x87CEEB, 50, 200);
+
+// Horizon walls - vertical planes on both sides
+let leftHorizonWall, rightHorizonWall;
+
+// Draw scrolling landscape pattern with MUCH more variety
+const drawLandscape = (ctx, offset, canvasWidth = 2048, canvasHeight = 512) => {
+        // FAILSAFE: Fill entire canvas with solid sky blue FIRST to prevent any black areas
+        ctx.fillStyle = '#87CEEB';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+        // Sky gradient with clouds - FILL ENTIRE CANVAS HEIGHT
+        const skyGradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+        skyGradient.addColorStop(0, '#87CEEB');
+        skyGradient.addColorStop(0.4, '#B0D4F1');
+        skyGradient.addColorStop(1, '#D4E8F7');
+        ctx.fillStyle = skyGradient;
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight); // Fill entire canvas
+
+        // Fluffy clouds - varied
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        for (let i = 0; i < 8; i++) {
+            const x = (i * 300 + offset * 0.3) % (canvasWidth + 300);
+            const y = 30 + Math.sin(i * 0.8) * 40;
+            const size = 25 + Math.sin(i * 1.3) * 15;
+
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.arc(x + size * 0.7, y - size * 0.3, size * 0.8, 0, Math.PI * 2);
+            ctx.arc(x - size * 0.7, y - size * 0.2, size * 0.7, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Distant mountains - multiple jagged peaks
+        ctx.fillStyle = '#7A8A6D';
+        for (let i = 0; i < 5; i++) {
+            const x = (i * 500 + offset * 1.2) % (canvasWidth + 500);
+            ctx.beginPath();
+            ctx.moveTo(x - 280, 200);
+            ctx.lineTo(x - 200, 120 + Math.sin(i) * 20);
+            ctx.lineTo(x - 120, 160);
+            ctx.lineTo(x - 40, 100 + Math.cos(i) * 25);
+            ctx.lineTo(x + 40, 140);
+            ctx.lineTo(x + 120, 110 + Math.sin(i * 1.5) * 20);
+            ctx.lineTo(x + 200, 170);
+            ctx.lineTo(x + 280, 200);
+            ctx.fill();
+        }
+
+        // Hills - closer layer
+        ctx.fillStyle = '#8B9C7D';
+        for (let i = 0; i < 7; i++) {
+            const x = (i * 380 + offset * 1.6) % (canvasWidth + 380);
+            ctx.beginPath();
+            ctx.moveTo(x - 220, 200);
+            ctx.quadraticCurveTo(x - 110, 150 + Math.sin(i * 0.9) * 25, x, 180);
+            ctx.quadraticCurveTo(x + 110, 200 - Math.cos(i * 1.1) * 20, x + 220, 200);
+            ctx.fill();
+        }
+
+        // Ground/grass with slight texture
+        ctx.fillStyle = '#4A7C4A';
+        ctx.fillRect(0, 200, canvasWidth, 312);
+
+        // Dirt patches
+        ctx.fillStyle = '#8B7355';
+        for (let i = 0; i < 12; i++) {
+            const x = (i * 180 + offset * 0.8) % (canvasWidth + 180);
+            ctx.fillRect(x - 30, 200 + (i % 3) * 40, 60 + Math.sin(i) * 20, 25);
+        }
+
+        // Buildings - varied types
+        for (let i = 0; i < 6; i++) {
+            const x = (i * 400 + offset * 2.2) % (canvasWidth + 400);
+            const buildingType = i % 3;
+
+            if (buildingType === 0) {
+                // Barn/farmhouse
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(x - 35, 140, 70, 60);
+                ctx.fillStyle = '#A0522D';
+                ctx.fillRect(x - 30, 145, 25, 35);
+                ctx.fillStyle = '#654321';
+                ctx.beginPath();
+                ctx.moveTo(x - 40, 140);
+                ctx.lineTo(x, 110);
+                ctx.lineTo(x + 40, 140);
+                ctx.fill();
+            } else if (buildingType === 1) {
+                // Silo
+                ctx.fillStyle = '#C0C0C0';
+                ctx.fillRect(x - 15, 120, 30, 80);
+                ctx.fillStyle = '#8B0000';
+                ctx.beginPath();
+                ctx.arc(x, 120, 18, Math.PI, 0);
+                ctx.fill();
+            } else {
+                // Small shed
+                ctx.fillStyle = '#696969';
+                ctx.fillRect(x - 20, 165, 40, 35);
+                ctx.fillStyle = '#A9A9A9';
+                ctx.fillRect(x - 8, 175, 16, 25);
+            }
+        }
+
+        // VARIED TREES - 4 different styles
+        for (let i = 0; i < 25; i++) {
+            const x = (i * 95 + offset * 2.5) % (canvasWidth + 95);
+            const treeStyle = i % 4;
+            const height = 50 + Math.sin(i * 0.7) * 30;
+
+            if (treeStyle === 0) {
+                // Pine/Evergreen
+                ctx.fillStyle = '#2F5A2F';
+                ctx.beginPath();
+                ctx.moveTo(x - 20, 200);
+                ctx.lineTo(x, 200 - height);
+                ctx.lineTo(x + 20, 200);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(x - 18, 200 - height * 0.3);
+                ctx.lineTo(x, 200 - height * 0.7);
+                ctx.lineTo(x + 18, 200 - height * 0.3);
+                ctx.fill();
+            } else if (treeStyle === 1) {
+                // Rounded/Oak
+                ctx.fillStyle = '#654321';
+                ctx.fillRect(x - 6, 200 - height * 0.6, 12, height * 0.6);
+                ctx.fillStyle = '#3A7D3A';
+                ctx.beginPath();
+                ctx.arc(x, 200 - height * 0.8, 22, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(x - 12, 200 - height * 0.75, 16, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(x + 12, 200 - height * 0.75, 16, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (treeStyle === 2) {
+                // Palm-like
+                ctx.fillStyle = '#8B7355';
+                ctx.fillRect(x - 4, 200 - height, 8, height);
+                ctx.fillStyle = '#228B22';
+                for (let j = 0; j < 5; j++) {
+                    const angle = (j / 5) * Math.PI * 2;
+                    ctx.beginPath();
+                    ctx.ellipse(x + Math.cos(angle) * 15, 200 - height + Math.sin(angle) * 15,
+                               18, 8, angle, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            } else {
+                // Bushy/Shrub
+                ctx.fillStyle = '#2F6A2F';
+                ctx.beginPath();
+                ctx.ellipse(x, 200 - height * 0.5, 25, height * 0.6, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#1F4A1F';
+                ctx.beginPath();
+                ctx.ellipse(x - 10, 200 - height * 0.4, 18, height * 0.4, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Fence posts and rails
+        ctx.fillStyle = '#8B7355';
+        for (let i = 0; i < 35; i++) {
+            const x = (i * 65 + offset * 3) % (canvasWidth + 65);
+            ctx.fillRect(x - 3, 190, 6, 20);
+        }
+        // Fence rails
+        ctx.fillStyle = '#A0826D';
+        for (let i = 0; i < 35; i++) {
+            const x = (i * 65 + offset * 3) % (canvasWidth + 65);
+            ctx.fillRect(x - 10, 195, 60, 3);
+            ctx.fillRect(x - 10, 202, 60, 3);
+        }
+
+        // Road signs
+        for (let i = 0; i < 4; i++) {
+            const x = (i * 550 + offset * 2.8) % (canvasWidth + 550);
+            // Sign post
+            ctx.fillStyle = '#696969';
+            ctx.fillRect(x - 3, 165, 6, 35);
+            // Sign board
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(x - 15, 165, 30, 20);
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(x - 12, 168, 24, 14);
+        }
+};
+
+const createHorizonWalls = () => {
+    // Create texture canvas for animated scenery
+    const canvas = document.createElement('canvas');
+    canvas.width = 2048;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    // Set default canvas background to sky blue to prevent black areas
+    ctx.fillStyle = '#87CEEB';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    drawLandscape(ctx, 0);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+
+    // Left wall - positioned at horizon level
+    const wallGeometry = new THREE.PlaneGeometry(500, 50);
+    const wallMaterial = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: true,
+        opacity: 1.0, // Full opacity
+        side: THREE.FrontSide,
+        depthWrite: false // Prevent z-fighting with sky
+    });
+
+    leftHorizonWall = new THREE.Mesh(wallGeometry, wallMaterial.clone());
+    leftHorizonWall.position.set(-50, 0, 0); // At ground level - horizon line
+    leftHorizonWall.rotation.y = Math.PI / 2;
+    leftHorizonWall.renderOrder = -1; // Render behind everything
+    leftHorizonWall.userData = { offset: 0, canvas, ctx, texture: leftHorizonWall.material.map };
+    scene.add(leftHorizonWall);
+
+    // Create separate canvas for right wall
+    const canvasR = document.createElement('canvas');
+    canvasR.width = 2048;
+    canvasR.height = 512;
+    const ctxR = canvasR.getContext('2d');
+
+    // Set default canvas background to sky blue to prevent black areas
+    ctxR.fillStyle = '#87CEEB';
+    ctxR.fillRect(0, 0, canvasR.width, canvasR.height);
+
+    // Initialize the right wall canvas with landscape
+    drawLandscape(ctxR, 100); // Start with offset 100 for variety
+
+    const textureR = new THREE.CanvasTexture(canvasR);
+
+    const wallMaterialR = new THREE.MeshBasicMaterial({
+        map: textureR,
+        transparent: true,
+        opacity: 1.0,
+        side: THREE.FrontSide,
+        depthWrite: false
+    });
+
+    rightHorizonWall = new THREE.Mesh(wallGeometry, wallMaterialR);
+    rightHorizonWall.position.set(50, 0, 0); // At ground level - horizon line
+    rightHorizonWall.rotation.y = -Math.PI / 2;
+    rightHorizonWall.renderOrder = -1;
+    rightHorizonWall.userData = { offset: 100, canvas: canvasR, ctx: ctxR, texture: textureR };
+    scene.add(rightHorizonWall);
+};
+
+// Update horizon walls based on speed
+const updateHorizonWalls = (speed) => {
+    if (!leftHorizonWall || !rightHorizonWall) return;
+
+    // Only update every few frames for performance
+    if (!leftHorizonWall.userData.frameCount) leftHorizonWall.userData.frameCount = 0;
+    leftHorizonWall.userData.frameCount++;
+
+    if (leftHorizonWall.userData.frameCount % 3 !== 0) {
+        // Still update position every frame
+        leftHorizonWall.position.z = camera.position.z;
+        rightHorizonWall.position.z = camera.position.z;
+        return;
+    }
+
+    // Update walls based on truck speed - matched to actual movement
+    // Speed is typically 0.3-0.5, multiply for visible motion on distant horizon
+    const scrollSpeed = speed * 15; // Even slower for realistic distant parallax
+
+    // Update left wall
+    leftHorizonWall.userData.offset += scrollSpeed;
+    leftHorizonWall.userData.ctx.clearRect(0, 0, 2048, 512);
+
+    // Redraw left landscape with new varied design
+    const ctx = leftHorizonWall.userData.ctx;
+    const offset = leftHorizonWall.userData.offset;
+    drawLandscape(ctx, offset);
+
+    leftHorizonWall.userData.texture.needsUpdate = true;
+
+    // Right wall (same speed but different starting offset for variety)
+    rightHorizonWall.userData.offset += scrollSpeed;
+    const ctxR = rightHorizonWall.userData.ctx;
+    const offsetR = rightHorizonWall.userData.offset;
+
+    ctxR.clearRect(0, 0, 2048, 512);
+    drawLandscape(ctxR, offsetR);
+
+    rightHorizonWall.userData.texture.needsUpdate = true;
+
+    // Keep walls following camera
+    leftHorizonWall.position.z = camera.position.z;
+    rightHorizonWall.position.z = camera.position.z;
+};
 
 const camera = new THREE.PerspectiveCamera(
     60,
@@ -40,11 +374,12 @@ const renderer = new THREE.WebGLRenderer({
     antialias: true,
     powerPreference: 'high-performance'
 });
+renderer.setClearColor(0x87CEEB); // Match sky blue background
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMapping = THREE.NoToneMapping; // Disable tone mapping to test if it's causing dark band
 renderer.toneMappingExposure = 1.0;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
@@ -123,6 +458,22 @@ const createTruck = () => {
     flatbed.position.set(0, 1.2, 2);
     flatbed.castShadow = true;
     truckGroup.add(flatbed);
+
+    // Logo on flatbed surface - visible when trees fall off
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.load('fff_logo.webp', (texture) => {
+        const logoGeometry = new THREE.PlaneGeometry(3, 3); // Square logo
+        const logoMaterial = new THREE.MeshBasicMaterial({
+            map: texture,
+            transparent: true,
+            opacity: 0.8,
+            depthWrite: false
+        });
+        const logo = new THREE.Mesh(logoGeometry, logoMaterial);
+        logo.rotation.x = -Math.PI / 2; // Lay flat on flatbed
+        logo.position.set(0, 1.36, 2); // Just above flatbed surface
+        truckGroup.add(logo);
+    });
 
     // Flatbed sides
     const sideGeometry = new THREE.BoxGeometry(0.15, 1, 8);
@@ -351,11 +702,69 @@ const createRoadSegment = (zPos) => {
     grassRight.receiveShadow = true;
     roadGroup.add(grassRight);
 
-    // Add some roadside details
-    if (Math.random() < 0.3) {
-        // Random rocks/debris on roadside
-        for (let i = 0; i < 2; i++) {
-            const rockSize = 0.3 + Math.random() * 0.4;
+    // Add rich roadside scenery with 3D models - ALWAYS ADD THIS
+    if (sceneryLoaded && Math.random() < 0.9) { // 90% chance for scenery
+        const numObjects = 3 + Math.floor(Math.random() * 5); // 3-7 objects per segment
+
+        for (let i = 0; i < numObjects; i++) {
+            const sceneryItem = preloadedScenery[Math.floor(Math.random() * preloadedScenery.length)];
+            const sceneryObj = sceneryItem.model.clone(true);
+
+            // Determine scale based on type
+            let scale = 1;
+            const path = sceneryItem.path;
+
+            if (path.includes('Rock')) {
+                scale = 10.0 + Math.random() * 5.0; // Rocks: MASSIVE
+            } else if (path.includes('Grass')) {
+                scale = 15.0 + Math.random() * 10.0; // Grass: HUGE patches
+            } else if (path.includes('Flower')) {
+                scale = 12.0 + Math.random() * 8.0; // Flowers: HUGE
+            } else if (path.includes('Birch') || path.includes('Pine') || path.includes('Maple')) {
+                scale = 0.8 + Math.random() * 0.4; // Tree GLBs: 10x bigger
+            } else if (path.includes('Dead')) {
+                scale = 1.0 + Math.random() * 0.5; // Dead trees: 10x bigger
+            } else if (path.includes('Trees_1')) {
+                scale = 1.2 + Math.random() * 0.6; // Trees_1 set: 10x bigger
+            } else if (path.includes('Trees')) {
+                scale = 1.0 + Math.random() * 0.5; // Generic trees: 10x bigger
+            }
+
+            sceneryObj.scale.set(scale, scale, scale);
+
+            // Position on either side of road
+            const side = Math.random() < 0.5 ? -1 : 1;
+            const distanceFromRoad = 8 + Math.random() * 12; // 8-20 units from center
+            const yPos = 0;
+            const zPos = (Math.random() - 0.5) * 18;
+            sceneryObj.position.set(
+                side * distanceFromRoad,
+                yPos,
+                zPos
+            );
+
+            // DEBUG: Log scenery spawn
+            console.log('🌲 Spawned', path.split('/')[1], 'at X:', (side * distanceFromRoad).toFixed(1), 'Y:', yPos, 'Z:', zPos.toFixed(1), 'scale:', scale.toFixed(1));
+
+            // Random rotation
+            sceneryObj.rotation.y = Math.random() * Math.PI * 2;
+
+            // Enable shadows
+            sceneryObj.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                }
+            });
+
+            roadGroup.add(sceneryObj);
+        }
+    }
+
+    // ALWAYS add some procedural rocks too for extra density
+    if (Math.random() < 0.5) {
+        for (let i = 0; i < 3; i++) {
+            const rockSize = 0.4 + Math.random() * 0.6;
             const rockGeometry = new THREE.DodecahedronGeometry(rockSize, 0);
             const rockMaterial = new THREE.MeshStandardMaterial({
                 color: 0x666666,
@@ -382,11 +791,11 @@ const createRoadSegment = (zPos) => {
     return roadGroup;
 };
 
-// 3D Tree Models - different models for each tier (Poly Pizza)
+// 3D Tree Models - using same model for all tiers to test
 const treeModelsByTier = {
-    budget: 'models/Birch Trees.glb',
+    budget: 'models/Pine Trees.glb',
     standard: 'models/Pine Trees.glb',
-    premium: 'models/Maple Trees.glb'
+    premium: 'models/Pine Trees.glb'
 };
 let preloadedTreeModels = {};
 let treeModelsLoaded = false;
@@ -396,13 +805,12 @@ const trafficCars = [];
 const lastCarSpawnTime = [0, 0, 0, 0]; // Track last spawn time per lane
 
 // Preload car models - separated into normal and special vehicles
-// Adding vehicles one at a time to test sizing
 const normalCarModels = [
     'models/Car.glb',
     'models/SUV.glb',
     'models/Taxi.glb',
     'models/Police Car.glb',
-    'models/CAR Model.glb',
+    // 'models/CAR Model.glb', // REMOVED - Has black rectangle mesh causing visual bug
     'models/Chevrolet Camaro.glb',
     'models/Convertible.glb',
     'models/Pickup Truck.glb',
@@ -522,7 +930,7 @@ const createTrafficCar = (lane, zPos, isSpecial = false) => {
         } else if (selectedCar.name.includes('Pickup Truck')) {
             scale = 1.5; // Pickup Truck a bit smaller
         } else if (selectedCar.name.includes('Mitsubishi')) {
-            scale = 2.5; // Mitsubishi is too small
+            scale = 4.5; // Mitsubishi needs to be much larger
         } else {
             scale = 1.75; // Default scale
         }
@@ -576,10 +984,20 @@ const monsterModels = {
     dragon: 'models/Dragon.glb',
     demon: 'models/Demon.glb',
     monsterolophus: 'models/Monsterolophus.glb',
-    biomech: 'models/Creature Bio-Mech - Base.1.glb'
+    biomech: 'models/Creature Bio-Mech - Base.1.glb',
+    zombie: 'models/Zombie.glb',
+    zombie2: 'models/Zombie-2.glb'
 };
 const preloadedMonsters = {};
 let monstersLoaded = false;
+
+// Roadside Scenery Models - DISABLED TO TEST IF ROCKS.GLB CAUSES BLACK RECTANGLE
+const sceneryModels = [
+    // 'models/Rocks.glb'
+];
+const preloadedScenery = [];
+let sceneryLoaded = false;
+let sceneryLoadedCount = 0;
 
 // Preload meteor models
 meteorModels.forEach(modelPath => {
@@ -615,6 +1033,31 @@ Object.keys(monsterModels).forEach(monsterType => {
         undefined,
         (error) => {
             console.error('Error loading monster:', monsterType, error);
+            monsterLoadCount++;
+        }
+    );
+});
+
+// Preload roadside scenery models
+sceneryModels.forEach(modelPath => {
+    loader.load(
+        modelPath,
+        (gltf) => {
+            preloadedScenery.push({
+                model: gltf.scene.clone(true),
+                path: modelPath
+            });
+            sceneryLoadedCount++;
+            console.log(`Loaded scenery: ${modelPath} (${sceneryLoadedCount}/${sceneryModels.length})`);
+            if (sceneryLoadedCount === sceneryModels.length) {
+                sceneryLoaded = true;
+                console.log('✅ All', sceneryModels.length, 'scenery models preloaded!');
+            }
+        },
+        undefined,
+        (error) => {
+            console.error('❌ Error loading scenery:', modelPath, error);
+            sceneryLoadedCount++;
         }
     );
 });
@@ -667,7 +1110,7 @@ const createMeteor = () => {
 
     // Add point light for dynamic lighting
     const meteorLight = new THREE.PointLight(0xFF6600, 4, 20);
-    meteorLight.castShadow = true;
+    meteorLight.castShadow = false; // DEBUG: Disable shadows to test if causing black rectangle
     meteorGroup.add(meteorLight);
 
     // Spawn meteors at 45 degree angle - high and ahead
@@ -676,6 +1119,9 @@ const createMeteor = () => {
     const startZ = truck.position.z - 40 - Math.random() * 20;
 
     meteorGroup.position.set(startX, startHeight, startZ);
+
+    // DEBUG: Log meteor spawn to track if this causes black rectangle
+    console.log('☄️ Meteor spawned at X:', startX.toFixed(1), 'Y:', startHeight.toFixed(1), 'Z:', startZ.toFixed(1));
 
     // Target random spots on the road ahead of truck at 45-degree angle
     // 45 degrees means equal horizontal and vertical distance
@@ -761,6 +1207,10 @@ const createPuddle = (zPos) => {
         splashParticles: [],
         hasHealed: false
     };
+
+    // DEBUG: Log puddle creation to track if this causes black rectangle
+    console.log('💧 Puddle created at X:', puddleGroup.position.x.toFixed(1), 'Y:', puddleGroup.position.y, 'Z:', puddleGroup.position.z.toFixed(1));
+
     return puddleGroup;
 };
 
@@ -788,10 +1238,11 @@ const createMonster = (type) => {
         scale = 10; // Bigger
     } else if (type === 'biomech') {
         scale = 15; // Bigger charging roadblock
+    } else if (type === 'zombie' || type === 'zombie2') {
+        scale = 0.4; // Much smaller - human-sized zombies
     }
 
     monsterModel.scale.set(scale, scale, scale);
-    console.log('⚠️ TESTING DEMON - Monster type:', type, 'scaled to:', scale, 'at position:', monsterGroup.position.x, monsterGroup.position.y, monsterGroup.position.z);
 
     let meshCount = 0;
     let hasMaterial = false;
@@ -897,6 +1348,25 @@ const createMonster = (type) => {
         );
         monsterGroup.userData.chargeSpeed = 0.4; // Fast charge down the road
         console.log('🤖 BIOMECH charging down lane at X:', lanePositions[lane]);
+    } else if (type === 'zombie' || type === 'zombie2') {
+        // Zombies spawn in traffic lanes and shamble straight down the road toward camera
+        const lanePositions = [-3.5, -1, 1, 3.5];
+        const lane = lanePositions[Math.floor(Math.random() * lanePositions.length)];
+
+        monsterGroup.position.set(
+            lane + (Math.random() - 0.5) * 1.5, // Slightly offset from lane center
+            0, // Ground level
+            truck.position.z - 30 - Math.random() * 20 // Spawn ahead of truck
+        );
+
+        monsterGroup.userData.shambleSpeed = 0.12 + Math.random() * 0.08; // Slow shambling forward
+        monsterGroup.userData.lateralWander = (Math.random() - 0.5) * 0.02; // Slight side-to-side wander
+        monsterGroup.userData.attacking = false;
+
+        // Face toward camera (0 rotation = facing negative Z, which is toward camera)
+        monsterGroup.rotation.y = 0;
+
+        console.log('🧟 ZOMBIE spawned in lane at X:', lane, 'Z:', monsterGroup.position.z, 'shambleSpeed:', monsterGroup.userData.shambleSpeed);
     }
 
     return monsterGroup;
@@ -1000,6 +1470,24 @@ const updateFireParticles = (fireGroup) => {
 const keys = {};
 window.addEventListener('keydown', (e) => {
     keys[e.key.toLowerCase()] = true;
+
+    // DEBUG: Press 'L' to list all scene objects
+    if (e.key.toLowerCase() === 'l') {
+        console.log('========== SCENE OBJECTS DEBUG ==========');
+        console.log('Camera position:', camera.position.x.toFixed(1), camera.position.y.toFixed(1), camera.position.z.toFixed(1));
+        let objectCount = 0;
+        scene.traverse((obj) => {
+            if (obj.isMesh) {
+                objectCount++;
+                const color = obj.material?.color ? '0x' + obj.material.color.getHexString() : 'no color';
+                const worldPos = new THREE.Vector3();
+                obj.getWorldPosition(worldPos);
+                console.log(`Object ${objectCount}: ${obj.type} | Color: ${color} | Position: X:${worldPos.x.toFixed(1)} Y:${worldPos.y.toFixed(1)} Z:${worldPos.z.toFixed(1)} | Geometry: ${obj.geometry?.type}`);
+            }
+        });
+        console.log('Total mesh objects:', objectCount);
+        console.log('=========================================');
+    }
 });
 window.addEventListener('keyup', (e) => {
     keys[e.key.toLowerCase()] = false;
@@ -1015,6 +1503,9 @@ const init = () => {
     truck = createTruck();
     scene.add(truck);
     createTreesOnTruck();
+
+    // Create horizon walls
+    createHorizonWalls();
 
     // Create initial road segments - extending forward
     for (let i = -2; i < 10; i++) {
@@ -1051,8 +1542,15 @@ const startGame = () => {
     gameState.isPlaying = true;
     gameState.trees = 12;
     gameState.distance = 0;
-    gameState.speed = gameState.targetSpeed;
     gameState.treesOnFire = 0;
+    gameState.currentRoundScore = 0;
+    gameState.totalTreeHealth = 1200;
+    gameState.startTime = Date.now();
+
+    // Apply difficulty settings for current level
+    const difficulty = getDifficultyConfig(gameState.level);
+    gameState.targetSpeed = difficulty.targetSpeed;
+    gameState.speed = difficulty.targetSpeed;
 
     startScreen.classList.add('hidden');
     endScreen.classList.add('hidden');
@@ -1091,10 +1589,23 @@ const startGame = () => {
             tree.userData.fireParticles = null;
         }
 
-        // Reset procedural tree colors only (don't touch 3D models)
-        tree.children.forEach(child => {
-            if (child.geometry && child.geometry.type === 'ConeGeometry') {
-                child.material.color.setHex(0x228B22);
+        // COMPLETELY reset tree appearance - remove ALL emissive effects and colors
+        tree.traverse(child => {
+            if (child.isMesh && child.material) {
+                // Clone material if it's shared to prevent affecting other trees
+                if (!child.material.userData || !child.material.userData.isUnique) {
+                    child.material = child.material.clone();
+                    child.material.userData = { isUnique: true };
+                }
+
+                // Reset emissive to black (no glow) - fixes orange trees bug
+                child.material.emissive = new THREE.Color(0x000000);
+                child.material.emissiveIntensity = 0;
+
+                // For procedural trees, reset color back to green
+                if (child.geometry && child.geometry.type === 'ConeGeometry') {
+                    child.material.color.setHex(0x228B22);
+                }
             }
         });
     });
@@ -1110,7 +1621,45 @@ const startGame = () => {
     updateUI();
 };
 
-const endGame = () => {
+// Calculate comprehensive score
+const calculateScore = () => {
+    const treesDelivered = gameState.trees;
+    const treeInfo = treeTypes[gameState.treeType];
+    const timeElapsed = (Date.now() - gameState.startTime) / 1000; // seconds
+
+    // Base points: delivery value
+    const deliveryPoints = treesDelivered * treeInfo.sellPrice;
+
+    // Perfect delivery bonus
+    const perfectBonus = treesDelivered === 12 ? 500 : 0;
+
+    // Speed bonus: faster completion = more points (max 500 points)
+    const targetTime = 60; // 60 seconds ideal time
+    const speedBonus = Math.max(0, Math.floor(500 - (timeElapsed - targetTime) * 5));
+
+    // Tree health bonus: average health × 2
+    const avgTreeHealth = gameState.totalTreeHealth / 12;
+    const healthBonus = Math.floor(avgTreeHealth * 2);
+
+    // Level multiplier
+    const levelMultiplier = 1 + (gameState.level - 1) * 0.1;
+
+    // Calculate total
+    const baseScore = deliveryPoints + perfectBonus + speedBonus + healthBonus;
+    const totalScore = Math.floor(baseScore * levelMultiplier);
+
+    return {
+        deliveryPoints,
+        perfectBonus,
+        speedBonus,
+        healthBonus,
+        levelMultiplier,
+        totalScore,
+        timeElapsed
+    };
+};
+
+const endGame = (isGameOver = false) => {
     gameState.isPlaying = false;
 
     const treesDelivered = gameState.trees;
@@ -1122,30 +1671,193 @@ const endGame = () => {
 
     gameState.cash += revenue + perfectBonus;
 
-    // Level up if profitable
-    if (profit > 0) {
-        gameState.level++;
-        // Increase difficulty
-        gameState.targetSpeed = Math.min(0.5, 0.3 + (gameState.level - 1) * 0.03);
-    }
+    // Calculate score
+    const scoreBreakdown = calculateScore();
+    gameState.currentRoundScore = scoreBreakdown.totalScore;
+    gameState.score += scoreBreakdown.totalScore;
 
-    document.getElementById('resultText').textContent =
-        `Level ${gameState.level} Complete! You delivered ${treesDelivered} out of 12 ${treeInfo.name}!`;
-    document.getElementById('earningsText').textContent =
-        `Investment: $${gameState.investment} | Revenue: $${revenue}${perfectBonus > 0 ? ' + $200 bonus' : ''}\n` +
-        `Profit: ${profit >= 0 ? '+' : ''}$${totalEarnings} | Total Cash: $${gameState.cash}`;
+    // Always level up after completing a delivery
+    gameState.level++;
+    console.log('📈 Level up! Now at level', gameState.level);
+
+    // Check if player can afford any trees for next round
+    const minTreeCost = Math.min(...Object.values(treeTypes).map(t => t.cost)) * 12;
+    const canAffordTrees = gameState.cash >= minTreeCost;
+
+    // True game over if can't afford trees
+    if (!canAffordTrees || isGameOver) {
+        // Game Over - check for high score
+        const highScores = getHighScores();
+        const lowestHighScore = highScores.length >= 10 ? highScores[9].score : 0;
+        const isNewHighScore = highScores.length < 10 || gameState.score > lowestHighScore;
+
+        document.getElementById('resultText').textContent =
+            `🎮 GAME OVER! 🎮\nReached Level ${gameState.level} · Final Score: ${gameState.score.toLocaleString()}`;
+
+        const scoreText = `
+FINAL ROUND BREAKDOWN:
+Delivery: ${scoreBreakdown.deliveryPoints} pts
+${scoreBreakdown.perfectBonus > 0 ? `Perfect Delivery: +${scoreBreakdown.perfectBonus} pts\n` : ''}Speed Bonus: ${scoreBreakdown.speedBonus} pts (${scoreBreakdown.timeElapsed.toFixed(1)}s)
+Health Bonus: ${scoreBreakdown.healthBonus} pts
+Level Multiplier: ×${scoreBreakdown.levelMultiplier.toFixed(1)}
+ROUND SCORE: ${scoreBreakdown.totalScore} pts
+
+💰 Final Cash: $${gameState.cash}
+${!canAffordTrees ? '⚠️ Not enough cash to continue!' : ''}`;
+
+        document.getElementById('earningsText').textContent = scoreText;
+
+        // Show high score entry if qualified
+        if (isNewHighScore) {
+            showHighScoreEntry();
+        } else {
+            displayHighScores(highScores);
+        }
+
+        // Change button to restart game
+        document.getElementById('restartBtn').textContent = 'New Game';
+        document.getElementById('restartBtn').onclick = () => {
+            // Reset everything
+            gameState.level = 1;
+            gameState.cash = 1000;
+            gameState.score = 0;
+            endScreen.classList.add('hidden');
+            purchaseScreen.classList.remove('hidden');
+            document.getElementById('restartBtn').textContent = 'Next Delivery';
+            document.getElementById('restartBtn').onclick = null; // Reset to default handler
+            updateUI();
+        };
+    } else {
+        // Round complete - continue playing
+        document.getElementById('resultText').textContent =
+            `Level ${gameState.level - 1} Complete! You delivered ${treesDelivered} out of 12 ${treeInfo.name}!`;
+
+        const scoreText = `
+SCORE BREAKDOWN:
+Delivery: ${scoreBreakdown.deliveryPoints} pts
+${scoreBreakdown.perfectBonus > 0 ? `Perfect Delivery: +${scoreBreakdown.perfectBonus} pts\n` : ''}Speed Bonus: ${scoreBreakdown.speedBonus} pts (${scoreBreakdown.timeElapsed.toFixed(1)}s)
+Health Bonus: ${scoreBreakdown.healthBonus} pts
+Level Multiplier: ×${scoreBreakdown.levelMultiplier.toFixed(1)}
+ROUND SCORE: ${scoreBreakdown.totalScore} pts
+TOTAL SCORE: ${gameState.score} pts`;
+
+        document.getElementById('earningsText').textContent =
+            `Investment: $${gameState.investment} | Revenue: $${revenue}${perfectBonus > 0 ? ' + $200 bonus' : ''}\n` +
+            `Profit: ${profit >= 0 ? '+' : ''}$${totalEarnings} | Total Cash: $${gameState.cash}\n\n${scoreText}`;
+
+        // Don't show high scores during round completion
+        document.getElementById('highScores').innerHTML = '';
+    }
 
     endScreen.classList.remove('hidden');
     updateUI();
+};
+
+// Show high score entry form
+const showHighScoreEntry = () => {
+    const highScoreEl = document.getElementById('highScores');
+    if (!highScoreEl) return;
+
+    highScoreEl.innerHTML = `
+        <div style="text-align: center; padding: 20px;">
+            <h3 style="color: #FFD700; font-size: 28px; margin-bottom: 20px;">
+                🎉 NEW HIGH SCORE! 🎉
+            </h3>
+            <p style="font-size: 20px; margin-bottom: 20px;">
+                You scored ${gameState.score.toLocaleString()} points!
+            </p>
+            <p style="font-size: 16px; margin-bottom: 15px;">Enter your name or initials:</p>
+            <input type="text" id="playerNameInput" maxlength="20"
+                   style="font-size: 20px; padding: 10px 20px; border-radius: 8px; border: 2px solid #FFD700;
+                          background: rgba(255,255,255,0.9); color: #1a3a52; font-weight: bold; text-align: center; width: 250px;"
+                   placeholder="Enter name...">
+            <button id="submitHighScore"
+                    style="display: block; margin: 20px auto; font-size: 18px; padding: 12px 30px;
+                           background: #FFD700; color: #1a3a52; border: none; border-radius: 8px;
+                           cursor: pointer; font-weight: bold;">
+                Submit Score
+            </button>
+        </div>
+    `;
+
+    // Focus input
+    const input = document.getElementById('playerNameInput');
+    if (input) {
+        input.focus();
+
+        // Submit on Enter key
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                submitHighScore();
+            }
+        });
+    }
+
+    // Button click handler
+    const submitBtn = document.getElementById('submitHighScore');
+    if (submitBtn) {
+        submitBtn.addEventListener('click', submitHighScore);
+    }
+};
+
+// Submit high score with player name
+const submitHighScore = () => {
+    const input = document.getElementById('playerNameInput');
+    const playerName = input ? input.value.trim() : '';
+
+    if (!playerName) {
+        alert('Please enter your name or initials!');
+        return;
+    }
+
+    // Save high score with name
+    const highScoreData = {
+        score: gameState.score,
+        level: gameState.level,
+        treesDelivered: gameState.trees,
+        date: new Date().toISOString(),
+        treeType: treeTypes[gameState.treeType].name,
+        playerName: playerName
+    };
+    const highScores = saveHighScore(highScoreData);
+
+    // Display the updated high scores
+    displayHighScores(highScores);
+};
+
+// Display high scores
+const displayHighScores = (scores) => {
+    let highScoreHTML = '<h3>🏆 TOP 10 HIGH SCORES 🏆</h3><div class="high-scores-list">';
+    scores.forEach((score, index) => {
+        const date = new Date(score.date).toLocaleDateString();
+        const playerName = score.playerName || 'Anonymous';
+        highScoreHTML += `
+            <div class="high-score-entry ${index === 0 ? 'rank-1' : ''}">
+                <span class="rank">#${index + 1}</span>
+                <span class="score">${score.score.toLocaleString()}</span>
+                <span class="details">${playerName} · Level ${score.level} · ${date}</span>
+            </div>`;
+    });
+    highScoreHTML += '</div>';
+
+    const highScoreEl = document.getElementById('highScores');
+    if (highScoreEl) {
+        highScoreEl.innerHTML = highScoreHTML;
+    }
 };
 
 const updateUI = () => {
     if (!treeCountEl) return; // Wait for DOM to be ready
     treeCountEl.textContent = gameState.trees;
     distanceEl.textContent = Math.floor(gameState.distance);
-    earningsEl.textContent = gameState.cash;
     levelDisplayEl.textContent = gameState.level;
     budgetAmountEl.textContent = gameState.cash;
+
+    // Update score display
+    const scoreEl = document.getElementById('score');
+    if (scoreEl) {
+        scoreEl.textContent = gameState.score.toLocaleString();
+    }
 };
 
 // Game loop
@@ -1192,6 +1904,9 @@ const animate = () => {
     // Camera follows truck
     camera.position.z = truck.position.z + 15;
 
+    // Update horizon walls with current speed
+    updateHorizonWalls(gameState.speed);
+
     // Move road segments to create infinite road
     roadSegments.forEach(segment => {
         // When a segment is too far behind camera, move it ahead
@@ -1204,10 +1919,10 @@ const animate = () => {
         }
     });
 
-    // Spawn traffic with increasing density per level
-    const trafficChance = 0.03 + (gameState.level - 1) * 0.01; // Doubled spawn rate
-    const maxTraffic = 8 + Math.floor(gameState.level / 2); // More cars on road at once
-    if (Math.random() < trafficChance && trafficCars.length < maxTraffic) {
+    // Spawn traffic using difficulty config
+    const difficulty = getDifficultyConfig(gameState.level);
+    // Re-enabled - testing car models one at a time
+    if (Math.random() < difficulty.trafficChance && trafficCars.length < difficulty.maxTraffic) {
         const lane = Math.floor(Math.random() * 4);
         const currentTime = Date.now();
 
@@ -1334,19 +2049,15 @@ const animate = () => {
         }
     });
 
-    // Spawn meteors with increasing frequency per level
-    const meteorChance = 0.02; // TESTING: Moderate meteor spawn rate
-    const maxMeteors = 3; // TESTING: Moderate meteors
-    if (Math.random() < meteorChance && meteors.length < maxMeteors) {
+    // Spawn meteors using difficulty config (starts at level 2)
+    if (Math.random() < difficulty.meteorChance && meteors.length < difficulty.maxMeteors) {
         const meteor = createMeteor();
         meteors.push(meteor);
         scene.add(meteor);
     }
 
-    // Spawn monsters with normal frequency
-    const monsterChance = 0; // TESTING: Disable monsters
-    const maxMonsters = 3;
-    if (Math.random() < monsterChance && monsters.length < maxMonsters && monstersLoaded) {
+    // Spawn monsters using difficulty config (starts at level 3)
+    if (Math.random() < difficulty.monsterChance && monsters.length < difficulty.maxMonsters && monstersLoaded) {
         const monsterTypes = ['dragon', 'monsterolophus', 'biomech']; // All working monsters (demon broken)
         const randomType = monsterTypes[Math.floor(Math.random() * monsterTypes.length)];
         const monster = createMonster(randomType);
@@ -1354,6 +2065,25 @@ const animate = () => {
             console.log('Spawning monster:', randomType, 'at position', monster.position.x, monster.position.y, monster.position.z, 'Truck at:', truck.position.z);
             monsters.push(monster);
             scene.add(monster);
+        }
+    }
+
+    // Spawn zombie swarms using difficulty config (starts at level 4)
+    if (Math.random() < difficulty.zombieChance && monstersLoaded) {
+        // Spawn a swarm of 2-3 zombies
+        const swarmSize = 2 + Math.floor(Math.random() * 2);
+        const baseZ = truck.position.z - 40 - Math.random() * 30; // Spawn further ahead
+
+        for (let i = 0; i < swarmSize; i++) {
+            const zombieType = Math.random() < 0.5 ? 'zombie' : 'zombie2';
+            const zombie = createMonster(zombieType);
+            if (zombie) {
+                // Spread the swarm out
+                zombie.position.x += (Math.random() - 0.5) * 6;
+                zombie.position.z = baseZ + (Math.random() - 0.5) * 20;
+                monsters.push(zombie);
+                scene.add(zombie);
+            }
         }
     }
 
@@ -1461,7 +2191,9 @@ const animate = () => {
                         }
                     } else {
                         // Graze - damage and start smoldering (not full fire yet)
+                        const oldHealth = tree.userData.health;
                         tree.userData.health -= 30;
+                        gameState.totalTreeHealth -= (oldHealth - tree.userData.health);
 
                         if (tree.userData.health <= 0 && !tree.userData.falling) {
                             gameState.trees--;
@@ -1498,8 +2230,8 @@ const animate = () => {
         }
     });
 
-    // Spawn and check puddles - very close ahead of truck for testing
-    if (Math.random() < 0.05 && puddles.length < 5) {
+    // Spawn puddles using difficulty config
+    if (Math.random() < difficulty.puddleChance && puddles.length < 5) {
         const puddle = createPuddle(truck.position.z - 15 - Math.random() * 10);
         puddles.push(puddle);
         scene.add(puddle);
@@ -1510,6 +2242,15 @@ const animate = () => {
         const type = monster.userData.type;
 
         if (type === 'dragon') {
+            // DEBUG: Log dragon position relative to camera to see if blocking view
+            const relativeZ = monster.position.z - camera.position.z;
+            const relativeY = monster.position.y - camera.position.y;
+            if (Math.abs(relativeZ) < 30 && Math.abs(relativeY) < 5) {
+                console.log('🐉 DRAGON NEAR CAMERA VIEW! Dragon:', monster.position.x.toFixed(1), monster.position.y.toFixed(1), monster.position.z.toFixed(1),
+                           'Camera:', camera.position.x.toFixed(1), camera.position.y.toFixed(1), camera.position.z.toFixed(1),
+                           'RelZ:', relativeZ.toFixed(1), 'RelY:', relativeY.toFixed(1));
+            }
+
             // Fly across the road horizontally/diagonally
             monster.position.x += monster.userData.crossSpeed * monster.userData.crossDirection;
 
@@ -1871,6 +2612,97 @@ const animate = () => {
                     gameState.trees--;
                 }
             });
+        } else if (type === 'zombie' || type === 'zombie2') {
+            // Zombies shamble straight through traffic toward camera (positive Z)
+            if (!monster.userData.attachedToCar) {
+                monster.position.z += monster.userData.shambleSpeed; // Move toward camera
+                monster.position.x += monster.userData.lateralWander; // Slight side-to-side wander
+            }
+
+            // DAMAGE CARS! Zombies destroy any car they touch
+            trafficCars.forEach((car) => {
+                if (car.userData.destroyed || car.userData.zombieAttached) return;
+
+                const carDx = Math.abs(car.position.x - monster.position.x);
+                const carDz = Math.abs(car.position.z - monster.position.z);
+
+                if (carDx < 1.5 && carDz < 2.5) {
+                    console.log('🧟 ZOMBIE SMASHES CAR!');
+                    car.userData.destroyed = true;
+                    car.userData.spinning = true;
+                    car.userData.zombieAttached = true;
+
+                    // VIOLENT car destruction
+                    car.userData.spinVelocity = new THREE.Vector3(
+                        (Math.random() - 0.5) * 1.2,
+                        0.5 + Math.random() * 0.3,
+                        (Math.random() - 0.5) * 1.2
+                    );
+
+                    car.userData.rotationVelocity = new THREE.Vector3(
+                        (Math.random() - 0.5) * 0.6,
+                        (Math.random() - 0.5) * 0.6,
+                        (Math.random() - 0.5) * 0.6
+                    );
+
+                    // Add fire effects
+                    for (let i = 0; i < 5; i++) {
+                        const fireGeo = new THREE.SphereGeometry(0.3 + Math.random() * 0.2, 8, 8);
+                        const fireMat = new THREE.MeshBasicMaterial({
+                            color: i % 2 === 0 ? 0xFF4500 : 0xFFAA00,
+                            transparent: true,
+                            opacity: 0.9
+                        });
+                        const fire = new THREE.Mesh(fireGeo, fireMat);
+                        fire.position.set(
+                            (Math.random() - 0.5) * 2,
+                            Math.random() * 2,
+                            (Math.random() - 0.5) * 2
+                        );
+                        car.add(fire);
+                    }
+                }
+            });
+
+            // DAMAGE TREES! Zombies attack trees when close to truck
+            trees.forEach(tree => {
+                if (tree.userData.health <= 0 || tree.userData.falling || tree.parent !== truck) return;
+
+                // Get world position of tree
+                const treeWorldPos = new THREE.Vector3();
+                tree.getWorldPosition(treeWorldPos);
+
+                const treeDx = Math.abs(treeWorldPos.x - monster.position.x);
+                const treeDz = Math.abs(treeWorldPos.z - monster.position.z);
+
+                // Zombie attacks tree if within range
+                if (treeDx < 2 && treeDz < 3) {
+                    // Only attack once per zombie-tree pair
+                    const attackKey = `${monster.uuid}_${tree.uuid}`;
+                    if (!monster.userData.attackedTrees) {
+                        monster.userData.attackedTrees = new Set();
+                    }
+
+                    if (!monster.userData.attackedTrees.has(attackKey)) {
+                        monster.userData.attackedTrees.add(attackKey);
+                        console.log('🧟 ZOMBIE ATTACKS TREE!');
+
+                        tree.userData.health -= 40; // Significant damage
+                        gameState.totalTreeHealth -= 40;
+
+                        if (tree.userData.health <= 0 && !tree.userData.falling) {
+                            gameState.trees--;
+                            tree.userData.falling = true;
+                            tree.userData.fallVelocity = new THREE.Vector3(
+                                (Math.random() - 0.5) * 0.3,
+                                0.2,
+                                (Math.random() - 0.5) * 0.15
+                            );
+                            console.log('🧟 ZOMBIE DESTROYED TREE! Trees left:', gameState.trees);
+                        }
+                    }
+                }
+            });
         }
 
         const distToPlayer = monster.position.distanceTo(truck.position);
@@ -2026,6 +2858,12 @@ const animate = () => {
                     // COMPLETELY reset tree appearance - remove ALL emissive glow
                     tree.traverse(child => {
                         if (child.isMesh && child.material) {
+                            // Clone material if shared to prevent affecting other trees
+                            if (!child.material.userData || !child.material.userData.isUnique) {
+                                child.material = child.material.clone();
+                                child.material.userData = { isUnique: true };
+                            }
+
                             // Reset emissive to black (no glow)
                             child.material.emissive = new THREE.Color(0x000000);
                             child.material.emissiveIntensity = 0;
@@ -2111,7 +2949,9 @@ const animate = () => {
 
         // Burning trees take continuous damage
         if (tree.userData.onFire && tree.userData.health > 0) {
-            tree.userData.health -= 0.1; // Slower burn damage - more time to reach puddle
+            const damage = 0.1;
+            tree.userData.health -= damage;
+            gameState.totalTreeHealth -= damage;
 
             // Tree dies from fire
             if (tree.userData.health <= 0 && !tree.userData.falling) {
