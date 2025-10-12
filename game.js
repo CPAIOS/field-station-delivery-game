@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
 
-// Tree types with costs and profits
+// Tree types with costs and profits (realistic pricing)
 const treeTypes = {
-    budget: { cost: 30, sellPrice: 60, name: 'Green Giant', emoji: '🌲' },
-    standard: { cost: 50, sellPrice: 100, name: 'Emerald Green', emoji: '🌲' },
-    premium: { cost: 75, sellPrice: 150, name: 'American Pillar', emoji: '🌲' }
+    budget: { cost: 10, sellPrice: 30, name: 'Green Giant', emoji: '🌲' },
+    standard: { cost: 15, sellPrice: 40, name: 'Emerald Green', emoji: '🌲' },
+    premium: { cost: 20, sellPrice: 50, name: 'American Pillar', emoji: '🌲' }
 };
 
 // Difficulty progression by level
@@ -46,7 +46,7 @@ const gameState = {
     trees: 12,
     treesOnFire: 0,
     distance: 0,
-    cash: 1000, // Starting cash
+    cash: 400, // Starting cash
     investment: 0, // Amount spent on current load
     treeType: 'standard', // Current tree type selected
     speed: 0,
@@ -1552,7 +1552,7 @@ ${!canAffordTrees ? '⚠️ Not enough cash to continue!' : ''}`;
         document.getElementById('restartBtn').onclick = () => {
             // Reset everything
             gameState.level = 1;
-            gameState.cash = 1000;
+            gameState.cash = 400;
             gameState.score = 0;
             endScreen.classList.add('hidden');
             purchaseScreen.classList.remove('hidden');
