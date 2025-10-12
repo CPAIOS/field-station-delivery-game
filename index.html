@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Field Station Farms - Meteor Delivery Challenge</title>
+    <title>Tree-Runner Apocalypse - Field Station Farms</title>
     <style>
         * {
             margin: 0;
@@ -14,13 +14,16 @@
         body {
             font-family: 'Arial', sans-serif;
             overflow: hidden;
-            background: #1a3a52;
+            background: #87CEEB; /* Sky blue to match scene */
         }
 
         #gameCanvas {
             display: block;
             width: 100vw;
             height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
         }
 
         #ui {
@@ -48,12 +51,13 @@
             border: 3px solid #1a3a52;
         }
 
-        #logo {
+        .screen-logo {
             position: absolute;
-            top: 10px;
-            right: 10px;
-            width: 150px;
-            opacity: 0.9;
+            bottom: 20px;
+            right: 20px;
+            width: 120px;
+            opacity: 1;
+            z-index: 1000;
         }
 
         #startScreen, #endScreen {
@@ -69,6 +73,7 @@
             align-items: center;
             color: white;
             pointer-events: all;
+            z-index: 100; /* Below logo (z-index: 1000) */
         }
 
         #startScreen h1, #endScreen h1 {
@@ -126,6 +131,7 @@
             align-items: center;
             color: white;
             pointer-events: all;
+            z-index: 100; /* Below logo (z-index: 1000) */
         }
 
         .tree-option {
@@ -172,6 +178,60 @@
             padding: 15px 30px;
             border-radius: 8px;
         }
+
+        #highScores {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            width: 600px;
+            max-width: 90%;
+        }
+
+        #highScores h3 {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 24px;
+        }
+
+        .high-scores-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .high-score-entry {
+            display: grid;
+            grid-template-columns: 50px 150px 1fr;
+            gap: 15px;
+            padding: 10px 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            align-items: center;
+            font-size: 16px;
+        }
+
+        .high-score-entry.rank-1 {
+            background: rgba(255, 215, 0, 0.2);
+            border: 2px solid gold;
+            font-weight: bold;
+        }
+
+        .high-score-entry .rank {
+            font-size: 20px;
+            font-weight: bold;
+            color: #FFD700;
+        }
+
+        .high-score-entry .score {
+            font-size: 22px;
+            font-weight: bold;
+            color: #90EE90;
+        }
+
+        .high-score-entry .details {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+        }
     </style>
 </head>
 <body>
@@ -182,12 +242,13 @@
             <div class="hud-item">Level: <span id="levelDisplay">1</span></div>
             <div class="hud-item">Trees: <span id="treeCount">12</span></div>
             <div class="hud-item">Distance: <span id="distance">0</span>m</div>
-            <div class="hud-item">Cash: $<span id="earnings">1000</span></div>
+            <div class="hud-item">Score: <span id="score">0</span></div>
         </div>
     </div>
 
     <div id="purchaseScreen">
         <div id="budgetDisplay">Budget: $<span id="budgetAmount">1000</span></div>
+        <img class="screen-logo" src="fff_logo.webp" alt="Field Station Farms">
         <h1>🌳 Select Your Tree Inventory 🌳</h1>
         <p style="font-size: 18px; margin-bottom: 30px;">Choose 12 trees to purchase and deliver</p>
 
@@ -226,18 +287,21 @@
     </div>
 
     <div id="startScreen" class="hidden">
-        <h1>🚚 Meteor Delivery Challenge 🌳</h1>
-        <p>Deliver trees for Field Station Farms through a meteor shower!</p>
+        <img class="screen-logo" src="fff_logo.webp" alt="Field Station Farms">
+        <h1>🚚 Tree-Runner Apocalypse 🌳</h1>
+        <p>Deliver trees for Field Station Farms through the apocalypse!</p>
         <p><strong>Controls:</strong> Arrow Keys or WASD</p>
         <p>← → / A D: Steer | ↑ ↓ / W S: Gas & Brake</p>
-        <p>Dodge meteors, avoid traffic, and drive through puddles to put out fires!</p>
+        <p>Dodge meteors, avoid traffic, flee zombies, and drive through puddles to put out fires!</p>
         <button id="startBtn">Start Delivery</button>
     </div>
 
     <div id="endScreen" class="hidden">
+        <img class="screen-logo" src="fff_logo.webp" alt="Field Station Farms">
         <h1>Delivery Complete!</h1>
         <p id="resultText"></p>
-        <p id="earningsText"></p>
+        <p id="earningsText" style="white-space: pre-line;"></p>
+        <div id="highScores" style="margin-top: 20px; max-height: 300px; overflow-y: auto;"></div>
         <button id="restartBtn">Next Delivery</button>
         <p style="margin-top: 30px; font-size: 16px;">
             Need real trees delivered?<br>
