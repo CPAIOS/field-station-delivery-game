@@ -1204,7 +1204,7 @@ const createMonster = (type) => {
 
 // Fire effect - much more dramatic
 const createFireParticles = () => {
-    const particleCount = 25;
+    const particleCount = performanceSettings.fireParticleCount || 15;
     const particles = new THREE.Group();
 
     for (let i = 0; i < particleCount; i++) {
@@ -1322,6 +1322,96 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => {
     keys[e.key.toLowerCase()] = false;
 });
+
+// Mobile/Touch Controls
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                 ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+// Performance settings for mobile
+const performanceSettings = {
+    particleCount: isMobile ? 20 : 40, // Reduce particles on mobile
+    fireParticleCount: isMobile ? 8 : 15, // Reduce fire particles
+    shadowQuality: isMobile ? 512 : 1024, // Lower shadow resolution
+    maxVisibleObjects: isMobile ? 50 : 100 // Limit objects in scene
+};
+
+const touchState = {
+    active: false,
+    startX: 0,
+    currentX: 0,
+    direction: 0, // -1 for left, 0 for none, 1 for right
+    intensity: 0  // 0 to 1, how far from start
+};
+
+// Touch event handlers
+window.addEventListener('touchstart', (e) => {
+    if (!gameState.isPlaying) return;
+
+    touchState.active = true;
+    touchState.startX = e.touches[0].clientX;
+    touchState.currentX = e.touches[0].clientX;
+}, { passive: true });
+
+window.addEventListener('touchmove', (e) => {
+    if (!gameState.isPlaying || !touchState.active) return;
+
+    touchState.currentX = e.touches[0].clientX;
+    const deltaX = touchState.currentX - touchState.startX;
+
+    // Determine direction and intensity
+    if (Math.abs(deltaX) > 10) { // Minimum threshold
+        touchState.direction = deltaX < 0 ? -1 : 1;
+        touchState.intensity = Math.min(Math.abs(deltaX) / 100, 1); // Normalize to 0-1
+    } else {
+        touchState.direction = 0;
+        touchState.intensity = 0;
+    }
+}, { passive: true });
+
+window.addEventListener('touchend', () => {
+    touchState.active = false;
+    touchState.direction = 0;
+    touchState.intensity = 0;
+});
+
+// Virtual button controls (for mobile tap controls)
+let leftBtn, rightBtn, mobileControls;
+const buttonState = { left: false, right: false };
+
+// Initialize mobile controls after DOM loads
+const initMobileControls = () => {
+    mobileControls = document.getElementById('mobileControls');
+    leftBtn = document.getElementById('leftBtn');
+    rightBtn = document.getElementById('rightBtn');
+
+    // Show mobile controls only on mobile devices
+    if (isMobile && mobileControls) {
+        mobileControls.style.display = 'flex';
+    }
+
+    // Button event listeners
+    if (leftBtn) {
+        leftBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            buttonState.left = true;
+        });
+        leftBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            buttonState.left = false;
+        });
+    }
+
+    if (rightBtn) {
+        rightBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            buttonState.right = true;
+        });
+        rightBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            buttonState.right = false;
+        });
+    }
+};
 
 // UI Elements - will be initialized after DOM loads
 let purchaseScreen, startBtn, restartBtn, startScreen, endScreen;
@@ -1702,12 +1792,29 @@ const animate = () => {
         return;
     }
 
-    // Truck controls
+    // Truck controls - keyboard + touch + buttons
+    let moveSpeed = 0.15;
+
+    // Keyboard controls
     if (keys['arrowleft'] || keys['a']) {
-        gameState.truckPosition -= 0.15;
+        gameState.truckPosition -= moveSpeed;
     }
     if (keys['arrowright'] || keys['d']) {
-        gameState.truckPosition += 0.15;
+        gameState.truckPosition += moveSpeed;
+    }
+
+    // Virtual button controls (mobile)
+    if (buttonState.left) {
+        gameState.truckPosition -= moveSpeed;
+    }
+    if (buttonState.right) {
+        gameState.truckPosition += moveSpeed;
+    }
+
+    // Touch swipe controls (mobile)
+    if (touchState.active && touchState.direction !== 0) {
+        const touchMoveSpeed = moveSpeed * (0.5 + touchState.intensity * 0.5); // 0.5x to 1x speed
+        gameState.truckPosition += touchState.direction * touchMoveSpeed;
     }
 
     // Speed controls - gas and brake (can go in reverse)
@@ -2877,6 +2984,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // Initial UI update
     updateUI();
+
+    // Initialize mobile controls
+    initMobileControls();
 });
 
 window.addEventListener('resize', () => {
