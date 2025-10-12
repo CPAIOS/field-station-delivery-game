@@ -15,7 +15,7 @@ const getDifficultyConfig = (level) => {
         meteorChance: level < 2 ? 0 : Math.min(0.07, 0.01 + (level - 2) * 0.01),
         puddleChance: Math.min(0.12, 0.03 + (level - 1) * 0.01),
         monsterChance: level < 3 ? 0 : Math.min(0.015, 0.005 + (level - 3) * 0.002),
-        zombieChance: level < 4 ? 0 : Math.min(0.003, 0.001 + (level - 4) * 0.0005), // Zombies start at level 4
+        zombieChance: level < 4 ? 0 : Math.min(0.015, 0.005 + (level - 4) * 0.002), // Zombies start at level 4 (5x spawn rate)
         maxTraffic: 8 + Math.floor(level / 2),
         maxMeteors: level < 2 ? 0 : Math.min(5, 1 + Math.floor(level / 2)),
         maxMonsters: level < 3 ? 0 : Math.min(3, 1 + Math.floor(level / 3)),
