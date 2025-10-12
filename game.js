@@ -66,192 +66,6 @@ scene.fog = new THREE.Fog(0x87CEEB, 50, 200);
 // Horizon walls - vertical planes on both sides
 let leftHorizonWall, rightHorizonWall;
 
-// Draw scrolling landscape pattern with MUCH more variety
-const drawLandscape = (ctx, offset, canvasWidth = 2048, canvasHeight = 512) => {
-        // FAILSAFE: Fill entire canvas with solid sky blue FIRST to prevent any black areas
-        ctx.fillStyle = '#87CEEB';
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-
-        // Sky gradient with clouds - FILL ENTIRE CANVAS HEIGHT
-        const skyGradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
-        skyGradient.addColorStop(0, '#87CEEB');
-        skyGradient.addColorStop(0.4, '#B0D4F1');
-        skyGradient.addColorStop(1, '#D4E8F7');
-        ctx.fillStyle = skyGradient;
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight); // Fill entire canvas
-
-        // Fluffy clouds - varied
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-        for (let i = 0; i < 8; i++) {
-            const x = (i * 300 + offset * 0.3) % (canvasWidth + 300);
-            const y = 30 + Math.sin(i * 0.8) * 40;
-            const size = 25 + Math.sin(i * 1.3) * 15;
-
-            ctx.beginPath();
-            ctx.arc(x, y, size, 0, Math.PI * 2);
-            ctx.arc(x + size * 0.7, y - size * 0.3, size * 0.8, 0, Math.PI * 2);
-            ctx.arc(x - size * 0.7, y - size * 0.2, size * 0.7, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        // Distant mountains - multiple jagged peaks
-        ctx.fillStyle = '#7A8A6D';
-        for (let i = 0; i < 5; i++) {
-            const x = (i * 500 + offset * 1.2) % (canvasWidth + 500);
-            ctx.beginPath();
-            ctx.moveTo(x - 280, 200);
-            ctx.lineTo(x - 200, 120 + Math.sin(i) * 20);
-            ctx.lineTo(x - 120, 160);
-            ctx.lineTo(x - 40, 100 + Math.cos(i) * 25);
-            ctx.lineTo(x + 40, 140);
-            ctx.lineTo(x + 120, 110 + Math.sin(i * 1.5) * 20);
-            ctx.lineTo(x + 200, 170);
-            ctx.lineTo(x + 280, 200);
-            ctx.fill();
-        }
-
-        // Hills - closer layer
-        ctx.fillStyle = '#8B9C7D';
-        for (let i = 0; i < 7; i++) {
-            const x = (i * 380 + offset * 1.6) % (canvasWidth + 380);
-            ctx.beginPath();
-            ctx.moveTo(x - 220, 200);
-            ctx.quadraticCurveTo(x - 110, 150 + Math.sin(i * 0.9) * 25, x, 180);
-            ctx.quadraticCurveTo(x + 110, 200 - Math.cos(i * 1.1) * 20, x + 220, 200);
-            ctx.fill();
-        }
-
-        // Ground/grass with slight texture
-        ctx.fillStyle = '#4A7C4A';
-        ctx.fillRect(0, 200, canvasWidth, 312);
-
-        // Dirt patches
-        ctx.fillStyle = '#8B7355';
-        for (let i = 0; i < 12; i++) {
-            const x = (i * 180 + offset * 0.8) % (canvasWidth + 180);
-            ctx.fillRect(x - 30, 200 + (i % 3) * 40, 60 + Math.sin(i) * 20, 25);
-        }
-
-        // Buildings - varied types
-        for (let i = 0; i < 6; i++) {
-            const x = (i * 400 + offset * 2.2) % (canvasWidth + 400);
-            const buildingType = i % 3;
-
-            if (buildingType === 0) {
-                // Barn/farmhouse
-                ctx.fillStyle = '#8B4513';
-                ctx.fillRect(x - 35, 140, 70, 60);
-                ctx.fillStyle = '#A0522D';
-                ctx.fillRect(x - 30, 145, 25, 35);
-                ctx.fillStyle = '#654321';
-                ctx.beginPath();
-                ctx.moveTo(x - 40, 140);
-                ctx.lineTo(x, 110);
-                ctx.lineTo(x + 40, 140);
-                ctx.fill();
-            } else if (buildingType === 1) {
-                // Silo
-                ctx.fillStyle = '#C0C0C0';
-                ctx.fillRect(x - 15, 120, 30, 80);
-                ctx.fillStyle = '#8B0000';
-                ctx.beginPath();
-                ctx.arc(x, 120, 18, Math.PI, 0);
-                ctx.fill();
-            } else {
-                // Small shed
-                ctx.fillStyle = '#696969';
-                ctx.fillRect(x - 20, 165, 40, 35);
-                ctx.fillStyle = '#A9A9A9';
-                ctx.fillRect(x - 8, 175, 16, 25);
-            }
-        }
-
-        // VARIED TREES - 4 different styles
-        for (let i = 0; i < 25; i++) {
-            const x = (i * 95 + offset * 2.5) % (canvasWidth + 95);
-            const treeStyle = i % 4;
-            const height = 50 + Math.sin(i * 0.7) * 30;
-
-            if (treeStyle === 0) {
-                // Pine/Evergreen
-                ctx.fillStyle = '#2F5A2F';
-                ctx.beginPath();
-                ctx.moveTo(x - 20, 200);
-                ctx.lineTo(x, 200 - height);
-                ctx.lineTo(x + 20, 200);
-                ctx.fill();
-                ctx.beginPath();
-                ctx.moveTo(x - 18, 200 - height * 0.3);
-                ctx.lineTo(x, 200 - height * 0.7);
-                ctx.lineTo(x + 18, 200 - height * 0.3);
-                ctx.fill();
-            } else if (treeStyle === 1) {
-                // Rounded/Oak
-                ctx.fillStyle = '#654321';
-                ctx.fillRect(x - 6, 200 - height * 0.6, 12, height * 0.6);
-                ctx.fillStyle = '#3A7D3A';
-                ctx.beginPath();
-                ctx.arc(x, 200 - height * 0.8, 22, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.beginPath();
-                ctx.arc(x - 12, 200 - height * 0.75, 16, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.beginPath();
-                ctx.arc(x + 12, 200 - height * 0.75, 16, 0, Math.PI * 2);
-                ctx.fill();
-            } else if (treeStyle === 2) {
-                // Palm-like
-                ctx.fillStyle = '#8B7355';
-                ctx.fillRect(x - 4, 200 - height, 8, height);
-                ctx.fillStyle = '#228B22';
-                for (let j = 0; j < 5; j++) {
-                    const angle = (j / 5) * Math.PI * 2;
-                    ctx.beginPath();
-                    ctx.ellipse(x + Math.cos(angle) * 15, 200 - height + Math.sin(angle) * 15,
-                               18, 8, angle, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            } else {
-                // Bushy/Shrub
-                ctx.fillStyle = '#2F6A2F';
-                ctx.beginPath();
-                ctx.ellipse(x, 200 - height * 0.5, 25, height * 0.6, 0, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = '#1F4A1F';
-                ctx.beginPath();
-                ctx.ellipse(x - 10, 200 - height * 0.4, 18, height * 0.4, 0, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
-
-        // Fence posts and rails
-        ctx.fillStyle = '#8B7355';
-        for (let i = 0; i < 35; i++) {
-            const x = (i * 65 + offset * 3) % (canvasWidth + 65);
-            ctx.fillRect(x - 3, 190, 6, 20);
-        }
-        // Fence rails
-        ctx.fillStyle = '#A0826D';
-        for (let i = 0; i < 35; i++) {
-            const x = (i * 65 + offset * 3) % (canvasWidth + 65);
-            ctx.fillRect(x - 10, 195, 60, 3);
-            ctx.fillRect(x - 10, 202, 60, 3);
-        }
-
-        // Road signs
-        for (let i = 0; i < 4; i++) {
-            const x = (i * 550 + offset * 2.8) % (canvasWidth + 550);
-            // Sign post
-            ctx.fillStyle = '#696969';
-            ctx.fillRect(x - 3, 165, 6, 35);
-            // Sign board
-            ctx.fillStyle = '#FFD700';
-            ctx.fillRect(x - 15, 165, 30, 20);
-            ctx.fillStyle = '#000000';
-            ctx.fillRect(x - 12, 168, 24, 14);
-        }
-};
-
 const createHorizonWalls = () => {
     // Create texture canvas for animated scenery
     const canvas = document.createElement('canvas');
@@ -259,11 +73,11 @@ const createHorizonWalls = () => {
     canvas.height = 512;
     const ctx = canvas.getContext('2d');
 
-    // Set default canvas background to sky blue to prevent black areas
-    ctx.fillStyle = '#87CEEB';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Get theme for current level
+    const theme = getLandscapeTheme(gameState.level);
 
-    drawLandscape(ctx, 0);
+    // Draw initial landscape
+    drawThemedLandscape(ctx, 0, theme);
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.wrapS = THREE.RepeatWrapping;
@@ -292,12 +106,8 @@ const createHorizonWalls = () => {
     canvasR.height = 512;
     const ctxR = canvasR.getContext('2d');
 
-    // Set default canvas background to sky blue to prevent black areas
-    ctxR.fillStyle = '#87CEEB';
-    ctxR.fillRect(0, 0, canvasR.width, canvasR.height);
-
     // Initialize the right wall canvas with landscape
-    drawLandscape(ctxR, 100); // Start with offset 100 for variety
+    drawThemedLandscape(ctxR, 100, theme); // Start with offset 100 for variety
 
     const textureR = new THREE.CanvasTexture(canvasR);
 
@@ -317,6 +127,23 @@ const createHorizonWalls = () => {
     scene.add(rightHorizonWall);
 };
 
+// Regenerate horizon walls for new level theme
+const regenerateHorizonWalls = () => {
+    if (!leftHorizonWall || !rightHorizonWall) return;
+
+    const theme = getLandscapeTheme(gameState.level);
+
+    // Redraw left wall
+    leftHorizonWall.userData.ctx.clearRect(0, 0, 2048, 512);
+    drawThemedLandscape(leftHorizonWall.userData.ctx, leftHorizonWall.userData.offset, theme);
+    leftHorizonWall.userData.texture.needsUpdate = true;
+
+    // Redraw right wall
+    rightHorizonWall.userData.ctx.clearRect(0, 0, 2048, 512);
+    drawThemedLandscape(rightHorizonWall.userData.ctx, rightHorizonWall.userData.offset, theme);
+    rightHorizonWall.userData.texture.needsUpdate = true;
+};
+
 // Update horizon walls based on speed
 const updateHorizonWalls = (speed) => {
     if (!leftHorizonWall || !rightHorizonWall) return;
@@ -332,6 +159,9 @@ const updateHorizonWalls = (speed) => {
         return;
     }
 
+    // Get theme for current level
+    const theme = getLandscapeTheme(gameState.level);
+
     // Update walls based on truck speed - matched to actual movement
     // Speed is typically 0.3-0.5, multiply for visible motion on distant horizon
     const scrollSpeed = speed * 15; // Even slower for realistic distant parallax
@@ -340,10 +170,10 @@ const updateHorizonWalls = (speed) => {
     leftHorizonWall.userData.offset += scrollSpeed;
     leftHorizonWall.userData.ctx.clearRect(0, 0, 2048, 512);
 
-    // Redraw left landscape with new varied design
+    // Redraw left landscape with themed design
     const ctx = leftHorizonWall.userData.ctx;
     const offset = leftHorizonWall.userData.offset;
-    drawLandscape(ctx, offset);
+    drawThemedLandscape(ctx, offset, theme);
 
     leftHorizonWall.userData.texture.needsUpdate = true;
 
@@ -353,7 +183,7 @@ const updateHorizonWalls = (speed) => {
     const offsetR = rightHorizonWall.userData.offset;
 
     ctxR.clearRect(0, 0, 2048, 512);
-    drawLandscape(ctxR, offsetR);
+    drawThemedLandscape(ctxR, offsetR, theme);
 
     rightHorizonWall.userData.texture.needsUpdate = true;
 
@@ -1551,6 +1381,9 @@ const startGame = () => {
     const difficulty = getDifficultyConfig(gameState.level);
     gameState.targetSpeed = difficulty.targetSpeed;
     gameState.speed = difficulty.targetSpeed;
+
+    // Update landscape theme for current level
+    regenerateHorizonWalls();
 
     startScreen.classList.add('hidden');
     endScreen.classList.add('hidden');
