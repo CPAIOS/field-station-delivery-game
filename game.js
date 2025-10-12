@@ -3002,7 +3002,7 @@ const animate = () => {
     updateUI();
 
     // Check end condition
-    if (gameState.distance > 500 || gameState.trees <= 0) {
+    if (gameState.distance > 1500 || gameState.trees <= 0) {
         endGame();
     }
 
