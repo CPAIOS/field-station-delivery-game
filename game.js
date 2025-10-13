@@ -1223,8 +1223,8 @@ const createFireParticles = () => {
     const particles = new THREE.Group();
 
     for (let i = 0; i < particleCount; i++) {
-        const size = 0.1 + Math.random() * 0.15;
-        const particleGeometry = new THREE.SphereGeometry(size, 6, 6);
+        const size = 0.15 + Math.random() * 0.25; // BIGGER particles
+        const particleGeometry = new THREE.SphereGeometry(size, 8, 8);
         const colorChoice = Math.random();
         let color;
         if (colorChoice < 0.3) color = 0xFF0000;      // Red
@@ -1235,32 +1235,32 @@ const createFireParticles = () => {
         const particleMaterial = new THREE.MeshBasicMaterial({
             color: color,
             transparent: true,
-            opacity: 0.9
+            opacity: 1.0 // FULL opacity for visibility
         });
         const particle = new THREE.Mesh(particleGeometry, particleMaterial);
 
         particle.position.set(
-            (Math.random() - 0.5) * 0.6,
-            0.8 + Math.random() * 0.4,
-            (Math.random() - 0.5) * 0.6
+            (Math.random() - 0.5) * 0.8,
+            0.8 + Math.random() * 0.6,
+            (Math.random() - 0.5) * 0.8
         );
 
         particle.userData = {
             baseColor: color,
             velocity: new THREE.Vector3(
-                (Math.random() - 0.5) * 0.02,
-                0.04 + Math.random() * 0.03,
-                (Math.random() - 0.5) * 0.02
+                (Math.random() - 0.5) * 0.03,
+                0.05 + Math.random() * 0.04,
+                (Math.random() - 0.5) * 0.03
             ),
             life: Math.random(),
-            rotationSpeed: (Math.random() - 0.5) * 0.2
+            rotationSpeed: (Math.random() - 0.5) * 0.3
         };
 
         particles.add(particle);
     }
 
-    // Add glow effect
-    const glowGeometry = new THREE.SphereGeometry(0.6, 8, 8);
+    // Add BIGGER glow effect
+    const glowGeometry = new THREE.SphereGeometry(0.9, 8, 8);
     const glowMaterial = new THREE.MeshBasicMaterial({
         color: 0xFF4500,
         transparent: true,
@@ -2118,13 +2118,20 @@ const animate = () => {
                     (Math.random() - 0.5) * 0.5
                 );
 
-                // Add DRAMATIC fire particles to the car (same as trees!)
+                // Add MASSIVE ROARING fire particles to the car!
                 car.userData.onFire = true;
                 const carFire = createFireParticles();
-                carFire.scale.set(1.5, 1.5, 1.5); // Bigger flames for cars!
+                carFire.scale.set(3, 3, 3); // HUGE flames for cars!
                 car.add(carFire);
                 car.userData.fireParticles = carFire;
-                console.log('🔥🚗 CAR ENGULFED IN FLAMES from meteor!');
+
+                // Add bright point light for dramatic glow
+                const fireLight = new THREE.PointLight(0xFF4500, 3, 15);
+                fireLight.position.set(0, 1, 0);
+                car.add(fireLight);
+                car.userData.fireLight = fireLight;
+
+                console.log('🔥🚗 CAR ENGULFED IN MASSIVE FLAMES from meteor!');
 
                 // Also add some extra fire spheres for impact effect
                 for (let i = 0; i < 8; i++) {
@@ -2508,11 +2515,17 @@ const animate = () => {
                                     (Math.random() - 0.5) * 0.6
                                 );
 
-                                // Add DRAMATIC persistent fire particles (same as trees!)
+                                // Add APOCALYPTIC persistent fire particles!
                                 const dragonCarFire = createFireParticles();
-                                dragonCarFire.scale.set(2, 2, 2); // HUGE flames for dragon!
+                                dragonCarFire.scale.set(4, 4, 4); // APOCALYPTIC flames for dragon!
                                 car.add(dragonCarFire);
                                 car.userData.fireParticles = dragonCarFire;
+
+                                // Add INTENSE point light for dramatic glow
+                                const dragonFireLight = new THREE.PointLight(0xFF2200, 5, 20);
+                                dragonFireLight.position.set(0, 1.5, 0);
+                                car.add(dragonFireLight);
+                                car.userData.fireLight = dragonFireLight;
 
                                 // Add MASSIVE explosion fire effects
                                 for (let i = 0; i < 12; i++) {
