@@ -68,16 +68,20 @@ let leftHorizonWall, rightHorizonWall;
 
 const createHorizonWalls = () => {
     // Create texture canvas for animated scenery
+    // Use lower resolution on mobile for better performance
+    const canvasWidth = isMobile ? 1024 : 2048;
+    const canvasHeight = isMobile ? 256 : 512;
+
     const canvas = document.createElement('canvas');
-    canvas.width = 2048;
-    canvas.height = 512;
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
     const ctx = canvas.getContext('2d');
 
     // Get theme for current level
     const theme = getLandscapeTheme(gameState.level);
 
     // Draw initial landscape
-    drawThemedLandscape(ctx, 0, theme);
+    drawThemedLandscape(ctx, 0, theme, canvasWidth, canvasHeight);
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.wrapS = THREE.RepeatWrapping;
@@ -97,17 +101,24 @@ const createHorizonWalls = () => {
     leftHorizonWall.position.set(-50, 0, 0); // At ground level - horizon line
     leftHorizonWall.rotation.y = Math.PI / 2;
     leftHorizonWall.renderOrder = -1; // Render behind everything
-    leftHorizonWall.userData = { offset: 0, canvas, ctx, texture: leftHorizonWall.material.map };
+    leftHorizonWall.userData = {
+        offset: 0,
+        canvas,
+        ctx,
+        texture: leftHorizonWall.material.map,
+        canvasWidth,
+        canvasHeight
+    };
     scene.add(leftHorizonWall);
 
     // Create separate canvas for right wall
     const canvasR = document.createElement('canvas');
-    canvasR.width = 2048;
-    canvasR.height = 512;
+    canvasR.width = canvasWidth;
+    canvasR.height = canvasHeight;
     const ctxR = canvasR.getContext('2d');
 
     // Initialize the right wall canvas with landscape
-    drawThemedLandscape(ctxR, 100, theme); // Start with offset 100 for variety
+    drawThemedLandscape(ctxR, 100, theme, canvasWidth, canvasHeight); // Start with offset 100 for variety
 
     const textureR = new THREE.CanvasTexture(canvasR);
 
@@ -123,7 +134,14 @@ const createHorizonWalls = () => {
     rightHorizonWall.position.set(50, 0, 0); // At ground level - horizon line
     rightHorizonWall.rotation.y = -Math.PI / 2;
     rightHorizonWall.renderOrder = -1;
-    rightHorizonWall.userData = { offset: 100, canvas: canvasR, ctx: ctxR, texture: textureR };
+    rightHorizonWall.userData = {
+        offset: 100,
+        canvas: canvasR,
+        ctx: ctxR,
+        texture: textureR,
+        canvasWidth,
+        canvasHeight
+    };
     scene.add(rightHorizonWall);
 };
 
@@ -134,14 +152,16 @@ const regenerateHorizonWalls = () => {
     const theme = getLandscapeTheme(gameState.level);
 
     // Redraw left wall
-    leftHorizonWall.userData.ctx.clearRect(0, 0, 2048, 512);
-    drawThemedLandscape(leftHorizonWall.userData.ctx, leftHorizonWall.userData.offset, theme);
-    leftHorizonWall.userData.texture.needsUpdate = true;
+    const leftData = leftHorizonWall.userData;
+    leftData.ctx.clearRect(0, 0, leftData.canvasWidth, leftData.canvasHeight);
+    drawThemedLandscape(leftData.ctx, leftData.offset, theme, leftData.canvasWidth, leftData.canvasHeight);
+    leftData.texture.needsUpdate = true;
 
     // Redraw right wall
-    rightHorizonWall.userData.ctx.clearRect(0, 0, 2048, 512);
-    drawThemedLandscape(rightHorizonWall.userData.ctx, rightHorizonWall.userData.offset, theme);
-    rightHorizonWall.userData.texture.needsUpdate = true;
+    const rightData = rightHorizonWall.userData;
+    rightData.ctx.clearRect(0, 0, rightData.canvasWidth, rightData.canvasHeight);
+    drawThemedLandscape(rightData.ctx, rightData.offset, theme, rightData.canvasWidth, rightData.canvasHeight);
+    rightData.texture.needsUpdate = true;
 };
 
 // Update horizon walls based on speed
@@ -167,25 +187,20 @@ const updateHorizonWalls = (speed) => {
     const scrollSpeed = speed * 15; // Even slower for realistic distant parallax
 
     // Update left wall
-    leftHorizonWall.userData.offset += scrollSpeed;
-    leftHorizonWall.userData.ctx.clearRect(0, 0, 2048, 512);
+    const leftData = leftHorizonWall.userData;
+    leftData.offset += scrollSpeed;
+    leftData.ctx.clearRect(0, 0, leftData.canvasWidth, leftData.canvasHeight);
 
     // Redraw left landscape with themed design
-    const ctx = leftHorizonWall.userData.ctx;
-    const offset = leftHorizonWall.userData.offset;
-    drawThemedLandscape(ctx, offset, theme);
-
-    leftHorizonWall.userData.texture.needsUpdate = true;
+    drawThemedLandscape(leftData.ctx, leftData.offset, theme, leftData.canvasWidth, leftData.canvasHeight);
+    leftData.texture.needsUpdate = true;
 
     // Right wall (same speed but different starting offset for variety)
-    rightHorizonWall.userData.offset += scrollSpeed;
-    const ctxR = rightHorizonWall.userData.ctx;
-    const offsetR = rightHorizonWall.userData.offset;
-
-    ctxR.clearRect(0, 0, 2048, 512);
-    drawThemedLandscape(ctxR, offsetR, theme);
-
-    rightHorizonWall.userData.texture.needsUpdate = true;
+    const rightData = rightHorizonWall.userData;
+    rightData.offset += scrollSpeed;
+    rightData.ctx.clearRect(0, 0, rightData.canvasWidth, rightData.canvasHeight);
+    drawThemedLandscape(rightData.ctx, rightData.offset, theme, rightData.canvasWidth, rightData.canvasHeight);
+    rightData.texture.needsUpdate = true;
 
     // Keep walls following camera
     leftHorizonWall.position.z = camera.position.z;
