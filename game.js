@@ -2151,9 +2151,9 @@ const animate = () => {
                 }
 
                 // Add point light for fire glow
-                const fireLight = new THREE.PointLight(0xFF4500, 2, 10);
-                fireLight.position.set(0, 1, 0);
-                car.add(fireLight);
+                const meteorCarLight = new THREE.PointLight(0xFF4500, 2, 10);
+                meteorCarLight.position.set(0, 1, 0);
+                car.add(meteorCarLight);
             }
         });
 
@@ -2546,9 +2546,9 @@ const animate = () => {
                                 }
 
                                 // Bright fire glow
-                                const fireLight = new THREE.PointLight(0xFF4500, 4, 15);
-                                fireLight.position.set(0, 1, 0);
-                                car.add(fireLight);
+                                const monsterCarLight = new THREE.PointLight(0xFF4500, 4, 15);
+                                monsterCarLight.position.set(0, 1, 0);
+                                car.add(monsterCarLight);
                             }
                         });
 
