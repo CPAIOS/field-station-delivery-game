@@ -2118,19 +2118,27 @@ const animate = () => {
                     (Math.random() - 0.5) * 0.5
                 );
 
-                // Add fire effects to the car
-                for (let i = 0; i < 5; i++) {
-                    const fireGeo = new THREE.SphereGeometry(0.3 + Math.random() * 0.2, 8, 8);
+                // Add DRAMATIC fire particles to the car (same as trees!)
+                car.userData.onFire = true;
+                const carFire = createFireParticles();
+                carFire.scale.set(1.5, 1.5, 1.5); // Bigger flames for cars!
+                car.add(carFire);
+                car.userData.fireParticles = carFire;
+                console.log('🔥🚗 CAR ENGULFED IN FLAMES from meteor!');
+
+                // Also add some extra fire spheres for impact effect
+                for (let i = 0; i < 8; i++) {
+                    const fireGeo = new THREE.SphereGeometry(0.4 + Math.random() * 0.3, 8, 8);
                     const fireMat = new THREE.MeshBasicMaterial({
                         color: i % 2 === 0 ? 0xFF4500 : 0xFF6600,
                         transparent: true,
-                        opacity: 0.8
+                        opacity: 0.9
                     });
                     const fire = new THREE.Mesh(fireGeo, fireMat);
                     fire.position.set(
-                        (Math.random() - 0.5) * 2,
-                        Math.random() * 2,
-                        (Math.random() - 0.5) * 2
+                        (Math.random() - 0.5) * 2.5,
+                        Math.random() * 2.5,
+                        (Math.random() - 0.5) * 2.5
                     );
                     car.add(fire);
                 }
@@ -2485,6 +2493,7 @@ const animate = () => {
                                 console.log('🔥🚗 DRAGON INCINERATES CAR!');
                                 car.userData.destroyed = true;
                                 car.userData.spinning = true;
+                                car.userData.onFire = true;
 
                                 // VIOLENT explosion from dragon fire
                                 car.userData.spinVelocity = new THREE.Vector3(
@@ -2499,19 +2508,25 @@ const animate = () => {
                                     (Math.random() - 0.5) * 0.6
                                 );
 
-                                // Add MASSIVE fire effects
-                                for (let i = 0; i < 8; i++) {
-                                    const fireGeo = new THREE.SphereGeometry(0.4 + Math.random() * 0.3, 8, 8);
+                                // Add DRAMATIC persistent fire particles (same as trees!)
+                                const dragonCarFire = createFireParticles();
+                                dragonCarFire.scale.set(2, 2, 2); // HUGE flames for dragon!
+                                car.add(dragonCarFire);
+                                car.userData.fireParticles = dragonCarFire;
+
+                                // Add MASSIVE explosion fire effects
+                                for (let i = 0; i < 12; i++) {
+                                    const fireGeo = new THREE.SphereGeometry(0.5 + Math.random() * 0.4, 8, 8);
                                     const fireMat = new THREE.MeshBasicMaterial({
                                         color: i % 3 === 0 ? 0xFF0000 : i % 3 === 1 ? 0xFF4500 : 0xFFAA00,
                                         transparent: true,
-                                        opacity: 0.9
+                                        opacity: 0.95
                                     });
                                     const fire = new THREE.Mesh(fireGeo, fireMat);
                                     fire.position.set(
-                                        (Math.random() - 0.5) * 2.5,
-                                        Math.random() * 2.5,
-                                        (Math.random() - 0.5) * 2.5
+                                        (Math.random() - 0.5) * 3,
+                                        Math.random() * 3,
+                                        (Math.random() - 0.5) * 3
                                     );
                                     car.add(fire);
                                 }
