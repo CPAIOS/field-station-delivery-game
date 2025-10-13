@@ -2150,8 +2150,9 @@ const animate = () => {
                 tree.getWorldPosition(treeWorldPos);
 
                 const distance = meteor.position.distanceTo(treeWorldPos);
-                if (distance < 3) {  // Much larger hitbox
-                    // Direct hit - destroy tree immediately
+                // 3-TIER FIRE SYSTEM
+                if (distance < 4) {
+                    // TIER 1: Direct hit (< 1.5m) - Instant death + fire
                     if (distance < 1.5) {
                         tree.userData.health = 0;
                         if (!tree.userData.falling) {
@@ -2169,10 +2170,36 @@ const animate = () => {
                                 tree.add(fire);
                             }
                         }
-                    } else {
-                        // Graze - damage and start smoldering (not full fire yet)
+                    }
+                    // TIER 2: Close range (1.5-2.5m) - Damage + instant flames
+                    else if (distance < 2.5) {
                         const oldHealth = tree.userData.health;
-                        tree.userData.health -= 30;
+                        tree.userData.health -= 40;
+                        gameState.totalTreeHealth -= (oldHealth - tree.userData.health);
+
+                        if (tree.userData.health <= 0 && !tree.userData.falling) {
+                            gameState.trees--;
+                            tree.userData.falling = true;
+                            tree.userData.fallVelocity = new THREE.Vector3(
+                                (Math.random() - 0.5) * 0.3,
+                                0.2,
+                                (Math.random() - 0.5) * 0.15
+                            );
+                        } else if (tree.userData.health > 0 && !tree.userData.onFire) {
+                            // Instant flames!
+                            tree.userData.onFire = true;
+                            gameState.treesOnFire++;
+                            console.log('🔥 Tree caught fire from close meteor! Has', tree.userData.health, 'health');
+
+                            const fire = createFireParticles();
+                            tree.userData.fireParticles = fire;
+                            tree.add(fire);
+                        }
+                    }
+                    // TIER 3: Outer range (2.5-4m) - Minor damage + smoldering (4 sec to flames)
+                    else {
+                        const oldHealth = tree.userData.health;
+                        tree.userData.health -= 20;
                         gameState.totalTreeHealth -= (oldHealth - tree.userData.health);
 
                         if (tree.userData.health <= 0 && !tree.userData.falling) {
@@ -2184,7 +2211,7 @@ const animate = () => {
                                 (Math.random() - 0.5) * 0.15
                             );
                         } else if (tree.userData.health > 0 && !tree.userData.smoldering && !tree.userData.onFire) {
-                            // Start smoldering (orange tree)
+                            // Start smoldering (orange glow)
                             tree.userData.smoldering = true;
                             tree.userData.smolderingTime = 0;
                             console.log('🔶 Tree started smoldering! Has', tree.userData.health, 'health');
@@ -2368,19 +2395,79 @@ const animate = () => {
 
                         // Check collision with trees - MASSIVE TORRENT INCINERATES EVERYTHING
                         trees.forEach(tree => {
+                            if (tree.userData.health <= 0 || tree.userData.falling) return;
+
                             const dx = Math.abs(tree.position.x - flame.position.x);
                             const dz = Math.abs(tree.position.z - flame.position.z);
                             const dy = Math.abs(tree.position.y - flame.position.y);
-                            // HUGE hitbox for torrent - it OBLITERATES everything
-                            if (dx < 6 && dz < 6 && dy < 5 && tree.userData.health > 0) {
-                                if (!tree.userData.onFire) {
+
+                            // 3-TIER DRAGON FIRE SYSTEM (same as meteors)
+                            // TIER 1: Direct hit (< 2m) - Instant death
+                            if (dx < 2 && dz < 2 && dy < 2) {
+                                tree.userData.health = 0;
+                                if (!tree.userData.falling) {
+                                    gameState.trees--;
+                                    tree.userData.falling = true;
+                                    tree.userData.fallVelocity = new THREE.Vector3(
+                                        (Math.random() - 0.5) * 0.4,
+                                        0.25,
+                                        (Math.random() - 0.5) * 0.2
+                                    );
+                                    if (!tree.userData.fireParticles) {
+                                        const fire = createFireParticles();
+                                        tree.userData.fireParticles = fire;
+                                        tree.add(fire);
+                                    }
+                                }
+                            }
+                            // TIER 2: Close range (2-4m) - Heavy damage + instant flames
+                            else if (dx < 4 && dz < 4 && dy < 4) {
+                                tree.userData.health -= 5; // Heavy damage
+                                gameState.totalTreeHealth -= 5;
+
+                                if (tree.userData.health <= 0 && !tree.userData.falling) {
+                                    gameState.trees--;
+                                    tree.userData.falling = true;
+                                    tree.userData.fallVelocity = new THREE.Vector3(
+                                        (Math.random() - 0.5) * 0.3,
+                                        0.2,
+                                        (Math.random() - 0.5) * 0.15
+                                    );
+                                } else if (!tree.userData.onFire && tree.userData.health > 0) {
                                     tree.userData.onFire = true;
                                     gameState.treesOnFire++;
                                     console.log('🔥 DRAGON TORRENT IGNITED TREE! Trees on fire:', gameState.treesOnFire);
+
+                                    const fire = createFireParticles();
+                                    tree.userData.fireParticles = fire;
+                                    tree.add(fire);
                                 }
-                                // Direct torrent hit does MASSIVE damage
-                                if (dx < 3 && dz < 3 && dy < 3) {
-                                    tree.userData.health -= 5; // MASSIVE damage
+                            }
+                            // TIER 3: Outer range (4-6m) - Minor damage + smoldering
+                            else if (dx < 6 && dz < 6 && dy < 5) {
+                                tree.userData.health -= 2; // Minor damage
+                                gameState.totalTreeHealth -= 2;
+
+                                if (tree.userData.health <= 0 && !tree.userData.falling) {
+                                    gameState.trees--;
+                                    tree.userData.falling = true;
+                                    tree.userData.fallVelocity = new THREE.Vector3(
+                                        (Math.random() - 0.5) * 0.3,
+                                        0.2,
+                                        (Math.random() - 0.5) * 0.15
+                                    );
+                                } else if (!tree.userData.smoldering && !tree.userData.onFire && tree.userData.health > 0) {
+                                    tree.userData.smoldering = true;
+                                    tree.userData.smolderingTime = 0;
+                                    console.log('🔶 Dragon fire made tree smolder!');
+
+                                    // Make tree orange
+                                    tree.traverse(child => {
+                                        if (child.isMesh && child.material) {
+                                            child.material.emissive = new THREE.Color(0xFF4500);
+                                            child.material.emissiveIntensity = 0.3;
+                                        }
+                                    });
                                 }
                             }
                         });
@@ -2913,8 +3000,8 @@ const animate = () => {
         if (tree.userData.smoldering && !tree.userData.onFire && tree.userData.health > 0) {
             tree.userData.smolderingTime += 1/60; // Increment by frame time (assuming 60fps)
 
-            // After 2 seconds of smoldering, ignite with visible flames!
-            if (tree.userData.smolderingTime > 2) {
+            // After 4 seconds of smoldering, ignite with visible flames!
+            if (tree.userData.smolderingTime > 4) {
                 console.log('🔥 Smoldering tree IGNITED!');
                 tree.userData.smoldering = false;
                 tree.userData.onFire = true;
