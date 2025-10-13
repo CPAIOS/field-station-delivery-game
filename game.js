@@ -879,6 +879,11 @@ Object.keys(monsterModels).forEach(monsterType => {
         (error) => {
             console.error('Error loading monster:', monsterType, error);
             monsterLoadCount++;
+            // Check if all monsters are attempted (loaded or failed)
+            if (monsterLoadCount === Object.keys(monsterModels).length) {
+                monstersLoaded = true;
+                console.log('All monster models preloaded! (some may have failed)');
+            }
         }
     );
 });
