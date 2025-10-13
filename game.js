@@ -2913,8 +2913,8 @@ const animate = () => {
         if (tree.userData.smoldering && !tree.userData.onFire && tree.userData.health > 0) {
             tree.userData.smolderingTime += 1/60; // Increment by frame time (assuming 60fps)
 
-            // After 8 seconds of smoldering, ignite!
-            if (tree.userData.smolderingTime > 8) {
+            // After 2 seconds of smoldering, ignite with visible flames!
+            if (tree.userData.smolderingTime > 2) {
                 console.log('🔥 Smoldering tree IGNITED!');
                 tree.userData.smoldering = false;
                 tree.userData.onFire = true;
