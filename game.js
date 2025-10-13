@@ -2152,6 +2152,7 @@ const animate = () => {
 
                 // Add point light for fire glow
                 const fireLight = new THREE.PointLight(0xFF4500, 2, 10);
+                fireLight.position.set(0, 1, 0);
                 car.add(fireLight);
             }
         });
@@ -2546,6 +2547,7 @@ const animate = () => {
 
                                 // Bright fire glow
                                 const fireLight = new THREE.PointLight(0xFF4500, 4, 15);
+                                fireLight.position.set(0, 1, 0);
                                 car.add(fireLight);
                             }
                         });
