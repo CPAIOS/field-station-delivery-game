@@ -1375,21 +1375,23 @@ window.addEventListener('touchend', () => {
 });
 
 // Virtual button controls (for mobile tap controls)
-let leftBtn, rightBtn, mobileControls;
-const buttonState = { left: false, right: false };
+let leftBtn, rightBtn, gasBtn, brakeBtn, mobileControls;
+const buttonState = { left: false, right: false, gas: false, brake: false };
 
 // Initialize mobile controls after DOM loads
 const initMobileControls = () => {
     mobileControls = document.getElementById('mobileControls');
     leftBtn = document.getElementById('leftBtn');
     rightBtn = document.getElementById('rightBtn');
+    gasBtn = document.getElementById('gasBtn');
+    brakeBtn = document.getElementById('brakeBtn');
 
     // Show mobile controls only on mobile devices
     if (isMobile && mobileControls) {
         mobileControls.style.display = 'flex';
     }
 
-    // Button event listeners
+    // Steering button event listeners
     if (leftBtn) {
         leftBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
@@ -1409,6 +1411,29 @@ const initMobileControls = () => {
         rightBtn.addEventListener('touchend', (e) => {
             e.preventDefault();
             buttonState.right = false;
+        });
+    }
+
+    // Speed button event listeners
+    if (gasBtn) {
+        gasBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            buttonState.gas = true;
+        });
+        gasBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            buttonState.gas = false;
+        });
+    }
+
+    if (brakeBtn) {
+        brakeBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            buttonState.brake = true;
+        });
+        brakeBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            buttonState.brake = false;
         });
     }
 };
@@ -1818,9 +1843,9 @@ const animate = () => {
     }
 
     // Speed controls - gas and brake (can go in reverse)
-    if (keys['arrowup'] || keys['w']) {
+    if (keys['arrowup'] || keys['w'] || buttonState.gas) {
         gameState.speed = Math.min(0.8, gameState.speed + 0.01); // Gas - accelerate
-    } else if (keys['arrowdown'] || keys['s']) {
+    } else if (keys['arrowdown'] || keys['s'] || buttonState.brake) {
         gameState.speed = Math.max(-0.2, gameState.speed - 0.02); // Brake - can go into reverse
     } else {
         // Gradually return to target speed
