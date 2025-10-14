@@ -72,6 +72,8 @@ const createHorizonWalls = () => {
     const canvasWidth = isMobile ? 1024 : 2048;
     const canvasHeight = isMobile ? 256 : 512;
 
+    console.log('🖼️ Creating horizon walls - isMobile:', isMobile, 'Canvas size:', canvasWidth, 'x', canvasHeight);
+
     const canvas = document.createElement('canvas');
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
@@ -143,6 +145,8 @@ const createHorizonWalls = () => {
         canvasHeight
     };
     scene.add(rightHorizonWall);
+
+    console.log('✅ Horizon walls created and added to scene. Left visible:', leftHorizonWall.visible, 'Right visible:', rightHorizonWall.visible);
 };
 
 // Regenerate horizon walls for new level theme
@@ -1346,6 +1350,8 @@ window.addEventListener('keyup', (e) => {
 // Mobile/Touch Controls
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
                  ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+console.log('📱 Mobile detection - isMobile:', isMobile, 'User Agent:', navigator.userAgent.substring(0, 50));
 
 // Performance settings for mobile
 const performanceSettings = {
