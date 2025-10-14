@@ -88,19 +88,26 @@ const createHorizonWalls = () => {
     const texture = new THREE.CanvasTexture(canvas);
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false; // Better performance on mobile
 
-    // Left wall - positioned at horizon level
-    const wallGeometry = new THREE.PlaneGeometry(500, 50);
+    // Left wall - positioned at horizon level (larger for mobile visibility)
+    const wallDepth = isMobile ? 600 : 500;
+    const wallHeight = isMobile ? 80 : 50;
+    const wallDistance = isMobile ? 40 : 50;
+    const wallGeometry = new THREE.PlaneGeometry(wallDepth, wallHeight);
     const wallMaterial = new THREE.MeshBasicMaterial({
         map: texture,
-        transparent: true,
-        opacity: 1.0, // Full opacity
-        side: THREE.FrontSide,
-        depthWrite: false // Prevent z-fighting with sky
+        transparent: false,
+        opacity: 1.0,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        depthTest: true
     });
 
     leftHorizonWall = new THREE.Mesh(wallGeometry, wallMaterial.clone());
-    leftHorizonWall.position.set(-50, 0, 0); // At ground level - horizon line
+    leftHorizonWall.position.set(-wallDistance, 0, 0); // At ground level - horizon line
     leftHorizonWall.rotation.y = Math.PI / 2;
     leftHorizonWall.renderOrder = -1; // Render behind everything
     leftHorizonWall.userData = {
@@ -123,17 +130,23 @@ const createHorizonWalls = () => {
     drawThemedLandscape(ctxR, 100, theme, canvasWidth, canvasHeight); // Start with offset 100 for variety
 
     const textureR = new THREE.CanvasTexture(canvasR);
+    textureR.wrapS = THREE.RepeatWrapping;
+    textureR.wrapT = THREE.ClampToEdgeWrapping;
+    textureR.minFilter = THREE.LinearFilter;
+    textureR.magFilter = THREE.LinearFilter;
+    textureR.generateMipmaps = false;
 
     const wallMaterialR = new THREE.MeshBasicMaterial({
         map: textureR,
-        transparent: true,
+        transparent: false,
         opacity: 1.0,
-        side: THREE.FrontSide,
-        depthWrite: false
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        depthTest: true
     });
 
     rightHorizonWall = new THREE.Mesh(wallGeometry, wallMaterialR);
-    rightHorizonWall.position.set(50, 0, 0); // At ground level - horizon line
+    rightHorizonWall.position.set(wallDistance, 0, 0); // At ground level - horizon line
     rightHorizonWall.rotation.y = -Math.PI / 2;
     rightHorizonWall.renderOrder = -1;
     rightHorizonWall.userData = {
