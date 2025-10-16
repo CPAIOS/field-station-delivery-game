@@ -94,8 +94,8 @@ const createHorizonWalls = () => {
 
     // Left wall - positioned at horizon level (larger for mobile visibility)
     const wallDepth = isMobile ? 600 : 500;
-    const wallHeight = isMobile ? 80 : 50;
-    const wallDistance = isMobile ? 40 : 50;
+    const wallHeight = isMobile ? 120 : 50;  // Much taller on mobile
+    const wallDistance = isMobile ? 30 : 50;  // Much closer on mobile
     const wallGeometry = new THREE.PlaneGeometry(wallDepth, wallHeight);
     const wallMaterial = new THREE.MeshBasicMaterial({
         map: texture,
