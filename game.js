@@ -8,19 +8,33 @@ const treeTypes = {
     premium: { cost: 20, sellPrice: 50, name: 'American Pillar', emoji: '🌲' }
 };
 
-// Difficulty progression by level
+// Difficulty progression by level - EASIER SCALING
 const getDifficultyConfig = (level) => {
     return {
-        trafficChance: Math.min(0.12, 0.03 + (level - 1) * 0.01),
-        meteorChance: level < 2 ? 0 : Math.min(0.07, 0.01 + (level - 2) * 0.01),
-        puddleChance: Math.min(0.12, 0.03 + (level - 1) * 0.01),
-        monsterChance: level < 3 ? 0 : Math.min(0.015, 0.005 + (level - 3) * 0.002),
-        zombieChance: level < 4 ? 0 : Math.min(0.015, 0.005 + (level - 4) * 0.002), // Zombies start at level 4 (5x spawn rate)
-        maxTraffic: 8 + Math.floor(level / 2),
-        maxMeteors: level < 2 ? 0 : Math.min(5, 1 + Math.floor(level / 2)),
-        maxMonsters: level < 3 ? 0 : Math.min(3, 1 + Math.floor(level / 3)),
-        targetSpeed: Math.min(0.5, 0.3 + (level - 1) * 0.03)
+        trafficChance: Math.min(0.10, 0.03 + (level - 1) * 0.005), // Slower ramp: 3% → 3.5% → 4% → 4.5%...
+        meteorChance: level < 2 ? 0 : Math.min(0.04, 0.005 + (level - 2) * 0.005), // Starts 0.5% at level 2, slower ramp
+        puddleChance: Math.min(0.10, 0.03 + (level - 1) * 0.005), // Slower ramp
+        monsterChance: level < 4 ? 0 : Math.min(0.008, 0.003 + (level - 4) * 0.001), // Start level 4, slower ramp
+        zombieChance: level < 5 ? 0 : Math.min(0.008, 0.003 + (level - 5) * 0.001), // Start level 5, slower ramp
+        maxTraffic: 6 + Math.floor(level / 3), // Fewer cars at once
+        maxMeteors: level < 2 ? 0 : Math.min(3, 1 + Math.floor(level / 3)), // Fewer meteors at once
+        maxMonsters: level < 4 ? 0 : Math.min(2, 1 + Math.floor(level / 4)), // Fewer monsters at once
+        targetSpeed: Math.min(0.45, 0.3 + (level - 1) * 0.02) // Gentler speed increase: 2% per level
     };
+};
+
+// Get available meteor types based on level - ramps up gradually
+const getAvailableMeteorTypes = (level) => {
+    // Level 2-3: Asteroid only
+    if (level <= 3) {
+        return [0]; // Index 0 = Asteroid.glb
+    }
+    // Level 4-5: Asteroid + Comet
+    if (level <= 5) {
+        return [0, 1]; // Index 0 = Asteroid.glb, 1 = Comet.glb
+    }
+    // Level 6+: All three types
+    return [0, 1, 2]; // 0 = Asteroid, 1 = Comet, 2 = Fire.glb
 };
 
 // High score management
@@ -934,7 +948,10 @@ const createMeteor = () => {
 
     // Use 3D model if loaded, otherwise skip
     if (meteorModelsLoaded && preloadedMeteorModels.length > 0) {
-        const meteorModel = preloadedMeteorModels[Math.floor(Math.random() * preloadedMeteorModels.length)].clone(true);
+        // Choose meteor type based on current level
+        const availableTypes = getAvailableMeteorTypes(gameState.level);
+        const typeIndex = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+        const meteorModel = preloadedMeteorModels[typeIndex].clone(true);
         meteorModel.scale.set(0.5, 0.5, 0.5);
         meteorModel.traverse((child) => {
             if (child.isMesh) {
@@ -2060,9 +2077,9 @@ const animate = () => {
         scene.add(meteor);
     }
 
-    // Spawn monsters using difficulty config (starts at level 3)
+    // Spawn monsters using difficulty config (starts at level 4)
     if (Math.random() < difficulty.monsterChance && monsters.length < difficulty.maxMonsters && monstersLoaded) {
-        const monsterTypes = ['dragon', 'monsterolophus', 'biomech']; // All working monsters (demon broken)
+        const monsterTypes = ['dragon', 'monsterolophus', 'biomech']; // No demons
         const randomType = monsterTypes[Math.floor(Math.random() * monsterTypes.length)];
         const monster = createMonster(randomType);
         if (monster) {
