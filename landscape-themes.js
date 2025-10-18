@@ -1,5 +1,5 @@
 // Landscape themes for different levels
-// Cycles through 10 themes, repeating after level 10
+// Cycles through 15 themes, repeating after level 15
 
 const getLandscapeTheme = (level) => {
     const themes = [
@@ -12,10 +12,15 @@ const getLandscapeTheme = (level) => {
         'coastal',    // Level 7: Beach, palm trees, ocean
         'winter',     // Level 8: Snow, pine trees, mountains
         'autumn',     // Level 9: Fall colors, harvest
-        'night'       // Level 10: Night city, lights
+        'night',      // Level 10: Night city, lights
+        'space',      // Level 11: Stars, planets, nebulas
+        'underwater', // Level 12: Ocean floor, fish, coral
+        'fantasy',    // Level 13: Castles, dragons, magic
+        'volcanic',   // Level 14: Lava, ash, eruptions
+        'arctic'      // Level 15: Aurora, ice formations, tundra
     ];
 
-    return themes[(level - 1) % 10];
+    return themes[(level - 1) % 15];
 };
 
 const drawThemedLandscape = (ctx, offset, theme, canvasWidth = 2048, canvasHeight = 512) => {
@@ -54,6 +59,21 @@ const drawThemedLandscape = (ctx, offset, theme, canvasWidth = 2048, canvasHeigh
             break;
         case 'night':
             drawNightLandscape(ctx, offset, canvasWidth, canvasHeight);
+            break;
+        case 'space':
+            drawSpaceLandscape(ctx, offset, canvasWidth, canvasHeight);
+            break;
+        case 'underwater':
+            drawUnderwaterLandscape(ctx, offset, canvasWidth, canvasHeight);
+            break;
+        case 'fantasy':
+            drawFantasyLandscape(ctx, offset, canvasWidth, canvasHeight);
+            break;
+        case 'volcanic':
+            drawVolcanicLandscape(ctx, offset, canvasWidth, canvasHeight);
+            break;
+        case 'arctic':
+            drawArcticLandscape(ctx, offset, canvasWidth, canvasHeight);
             break;
         default:
             drawRuralLandscape(ctx, offset, canvasWidth, canvasHeight);
@@ -686,5 +706,427 @@ const drawNightLandscape = (ctx, offset, canvasWidth, canvasHeight) => {
         const x = (i * 280 + offset * 1.8) % (canvasWidth + 280);
         ctx.fillStyle = neonColors[i % 4];
         ctx.fillRect(x - 25, 160, 50, 20);
+    }
+};
+
+// LEVEL 11: SPACE
+const drawSpaceLandscape = (ctx, offset, canvasWidth, canvasHeight) => {
+    // Deep space background
+    const skyGradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+    skyGradient.addColorStop(0, '#000000');
+    skyGradient.addColorStop(0.5, '#0A0A2E');
+    skyGradient.addColorStop(1, '#1A1A4A');
+    ctx.fillStyle = skyGradient;
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    // Stars - distant
+    ctx.fillStyle = '#FFFFFF';
+    for (let i = 0; i < 100; i++) {
+        const x = (i * 23 + offset * 0.05) % canvasWidth;
+        const y = (i * 37) % 200 + 10;
+        const size = Math.random() * 2;
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Nebula clouds
+    for (let i = 0; i < 5; i++) {
+        const x = (i * 450 + offset * 0.3) % (canvasWidth + 450);
+        const colors = ['rgba(138, 43, 226, 0.3)', 'rgba(255, 20, 147, 0.3)', 'rgba(0, 191, 255, 0.3)'];
+        const gradient = ctx.createRadialGradient(x, 120, 10, x, 120, 100);
+        gradient.addColorStop(0, colors[i % 3]);
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x - 100, 50, 200, 150);
+    }
+
+    // Planets
+    for (let i = 0; i < 4; i++) {
+        const x = (i * 550 + offset * 1) % (canvasWidth + 550);
+        const y = 100 + i * 20;
+        const size = 40 + i * 10;
+        const planetColors = ['#FF6347', '#4169E1', '#FFD700', '#9370DB'];
+
+        ctx.fillStyle = planetColors[i % 4];
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Planet rings for some
+        if (i % 2 === 0) {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.ellipse(x, y, size * 1.4, size * 0.3, 0.3, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+    }
+
+    // Asteroids/meteors
+    ctx.fillStyle = '#8B8B8B';
+    for (let i = 0; i < 15; i++) {
+        const x = (i * 150 + offset * 2.5) % (canvasWidth + 150);
+        const size = 5 + Math.random() * 8;
+        ctx.beginPath();
+        ctx.arc(x, 180 + i * 5, size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Space "ground" - asteroid field
+    ctx.fillStyle = '#1A1A2A';
+    ctx.fillRect(0, 200, canvasWidth, 312);
+};
+
+// LEVEL 12: UNDERWATER
+const drawUnderwaterLandscape = (ctx, offset, canvasWidth, canvasHeight) => {
+    // Water gradient
+    const skyGradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+    skyGradient.addColorStop(0, '#001a33');
+    skyGradient.addColorStop(0.5, '#003d5c');
+    skyGradient.addColorStop(1, '#006494');
+    ctx.fillStyle = skyGradient;
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    // Light rays from surface
+    for (let i = 0; i < 6; i++) {
+        const x = (i * 400 + offset * 0.2) % (canvasWidth + 400);
+        const gradient = ctx.createLinearGradient(x, 0, x + 50, canvasHeight);
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.1)');
+        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x, 0, 30, 200);
+    }
+
+    // Coral formations
+    for (let i = 0; i < 12; i++) {
+        const x = (i * 190 + offset * 1.5) % (canvasWidth + 190);
+        const coralColors = ['#FF6B9D', '#FF8C94', '#FFA500', '#9D4EDD'];
+        ctx.fillStyle = coralColors[i % 4];
+
+        // Coral branches
+        for (let j = 0; j < 5; j++) {
+            ctx.beginPath();
+            ctx.moveTo(x, 200);
+            ctx.quadraticCurveTo(
+                x + (j - 2) * 10 + Math.sin(i) * 5,
+                180 - j * 15,
+                x + (j - 2) * 15,
+                160 - j * 10
+            );
+            ctx.lineWidth = 8 - j;
+            ctx.strokeStyle = coralColors[i % 4];
+            ctx.stroke();
+        }
+    }
+
+    // Fish swimming
+    for (let i = 0; i < 20; i++) {
+        const x = (i * 120 + offset * 3) % (canvasWidth + 120);
+        const y = 80 + Math.sin(i + offset * 0.02) * 40;
+        const fishColors = ['#FFD700', '#FF4500', '#00CED1', '#9370DB'];
+
+        ctx.fillStyle = fishColors[i % 4];
+        ctx.beginPath();
+        ctx.ellipse(x, y, 12, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Tail
+        ctx.beginPath();
+        ctx.moveTo(x + 12, y);
+        ctx.lineTo(x + 18, y - 5);
+        ctx.lineTo(x + 18, y + 5);
+        ctx.fill();
+    }
+
+    // Bubbles
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    for (let i = 0; i < 30; i++) {
+        const x = (i * 80 + offset * 2) % (canvasWidth + 80);
+        const y = ((i * 53 + offset * 1.5) % 180) + 20;
+        const size = 3 + Math.random() * 5;
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Ocean floor
+    ctx.fillStyle = '#002147';
+    ctx.fillRect(0, 200, canvasWidth, 312);
+
+    // Sand ripples
+    ctx.fillStyle = '#4A6FA5';
+    for (let i = 0; i < 20; i++) {
+        const x = (i * 110 + offset * 2) % (canvasWidth + 110);
+        ctx.fillRect(x, 200, 80, 3);
+    }
+};
+
+// LEVEL 13: FANTASY
+const drawFantasyLandscape = (ctx, offset, canvasWidth, canvasHeight) => {
+    // Magical sky
+    const skyGradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+    skyGradient.addColorStop(0, '#FF1493');
+    skyGradient.addColorStop(0.4, '#9370DB');
+    skyGradient.addColorStop(1, '#4B0082');
+    ctx.fillStyle = skyGradient;
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    // Floating islands
+    ctx.fillStyle = '#8B7355';
+    for (let i = 0; i < 5; i++) {
+        const x = (i * 450 + offset * 0.8) % (canvasWidth + 450);
+        const y = 80 + Math.sin(i * 1.2) * 30;
+
+        ctx.beginPath();
+        ctx.ellipse(x, y, 80, 40, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Grass on island
+        ctx.fillStyle = '#00FF00';
+        ctx.beginPath();
+        ctx.ellipse(x, y - 20, 70, 15, 0, 0, Math.PI);
+        ctx.fill();
+        ctx.fillStyle = '#8B7355';
+    }
+
+    // Magical crystals
+    for (let i = 0; i < 10; i++) {
+        const x = (i * 220 + offset * 1.5) % (canvasWidth + 220);
+        const crystalColors = ['#00FFFF', '#FF00FF', '#FFFF00', '#00FF00'];
+        ctx.fillStyle = crystalColors[i % 4];
+
+        ctx.beginPath();
+        ctx.moveTo(x, 160);
+        ctx.lineTo(x - 10, 180);
+        ctx.lineTo(x - 8, 200);
+        ctx.lineTo(x + 8, 200);
+        ctx.lineTo(x + 10, 180);
+        ctx.fill();
+
+        // Glow
+        const gradient = ctx.createRadialGradient(x, 180, 5, x, 180, 25);
+        gradient.addColorStop(0, `${crystalColors[i % 4]}80`);
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(x, 180, 25, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Castles
+    for (let i = 0; i < 3; i++) {
+        const x = (i * 700 + offset * 1.2) % (canvasWidth + 700);
+
+        // Castle walls
+        ctx.fillStyle = '#696969';
+        ctx.fillRect(x - 50, 120, 100, 80);
+
+        // Towers
+        ctx.fillRect(x - 60, 100, 20, 100);
+        ctx.fillRect(x + 40, 100, 20, 100);
+
+        // Tower tops (cones)
+        ctx.fillStyle = '#8B0000';
+        ctx.beginPath();
+        ctx.moveTo(x - 70, 100);
+        ctx.lineTo(x - 50, 70);
+        ctx.lineTo(x - 30, 100);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(x + 30, 100);
+        ctx.lineTo(x + 50, 70);
+        ctx.lineTo(x + 70, 100);
+        ctx.fill();
+    }
+
+    // Magic sparkles
+    ctx.fillStyle = '#FFD700';
+    for (let i = 0; i < 40; i++) {
+        const x = (i * 55 + offset * 2.5) % canvasWidth;
+        const y = (i * 41) % 150 + 20;
+        const size = 2 + Math.random() * 3;
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Ground
+    ctx.fillStyle = '#4B0082';
+    ctx.fillRect(0, 200, canvasWidth, 312);
+};
+
+// LEVEL 14: VOLCANIC
+const drawVolcanicLandscape = (ctx, offset, canvasWidth, canvasHeight) => {
+    // Ash-filled sky
+    const skyGradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+    skyGradient.addColorStop(0, '#2B2B2B');
+    skyGradient.addColorStop(0.5, '#4A4A4A');
+    skyGradient.addColorStop(1, '#FF4500');
+    ctx.fillStyle = skyGradient;
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    // Volcanoes
+    ctx.fillStyle = '#3C3C3C';
+    for (let i = 0; i < 4; i++) {
+        const x = (i * 550 + offset * 1) % (canvasWidth + 550);
+
+        ctx.beginPath();
+        ctx.moveTo(x - 150, 200);
+        ctx.lineTo(x, 80);
+        ctx.lineTo(x + 150, 200);
+        ctx.fill();
+
+        // Lava glow at top
+        const gradient = ctx.createRadialGradient(x, 80, 10, x, 80, 60);
+        gradient.addColorStop(0, '#FF4500');
+        gradient.addColorStop(0.5, '#FF6600');
+        gradient.addColorStop(1, 'rgba(255, 69, 0, 0)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(x, 80, 60, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#3C3C3C';
+    }
+
+    // Lava flows
+    ctx.fillStyle = '#FF4500';
+    for (let i = 0; i < 8; i++) {
+        const x = (i * 280 + offset * 2) % (canvasWidth + 280);
+
+        ctx.beginPath();
+        ctx.moveTo(x, 150);
+        ctx.quadraticCurveTo(x + 10, 165, x + 5, 180);
+        ctx.quadraticCurveTo(x - 5, 190, x + 10, 200);
+        ctx.lineWidth = 15;
+        ctx.strokeStyle = '#FF6600';
+        ctx.stroke();
+
+        ctx.lineWidth = 8;
+        ctx.strokeStyle = '#FFD700';
+        ctx.stroke();
+    }
+
+    // Ash/embers falling
+    ctx.fillStyle = 'rgba(128, 128, 128, 0.7)';
+    for (let i = 0; i < 30; i++) {
+        const x = (i * 75 + offset * 3) % canvasWidth;
+        const y = ((i * 47 + offset * 2) % 180) + 20;
+        const size = 2 + Math.random() * 4;
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Ground - charred earth
+    ctx.fillStyle = '#1A1A1A';
+    ctx.fillRect(0, 200, canvasWidth, 312);
+
+    // Lava cracks in ground
+    ctx.strokeStyle = '#FF4500';
+    ctx.lineWidth = 3;
+    for (let i = 0; i < 12; i++) {
+        const x = (i * 180 + offset * 1.8) % (canvasWidth + 180);
+        ctx.beginPath();
+        ctx.moveTo(x, 200);
+        ctx.lineTo(x + 10, 220);
+        ctx.lineTo(x - 5, 240);
+        ctx.stroke();
+    }
+};
+
+// LEVEL 15: ARCTIC
+const drawArcticLandscape = (ctx, offset, canvasWidth, canvasHeight) => {
+    // Night sky with aurora
+    const skyGradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+    skyGradient.addColorStop(0, '#000033');
+    skyGradient.addColorStop(0.5, '#001a4d');
+    skyGradient.addColorStop(1, '#003366');
+    ctx.fillStyle = skyGradient;
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    // Aurora Borealis
+    const auroraGradient = ctx.createLinearGradient(0, 50, 0, 150);
+    auroraGradient.addColorStop(0, 'rgba(0, 255, 127, 0.3)');
+    auroraGradient.addColorStop(0.5, 'rgba(0, 255, 255, 0.4)');
+    auroraGradient.addColorStop(1, 'rgba(138, 43, 226, 0.3)');
+    ctx.fillStyle = auroraGradient;
+
+    for (let i = 0; i < 5; i++) {
+        const x = (i * 450 + offset * 0.3) % (canvasWidth + 450);
+        ctx.beginPath();
+        ctx.moveTo(x - 200, 50);
+        ctx.quadraticCurveTo(x - 100, 80 + Math.sin(i) * 20, x, 100);
+        ctx.quadraticCurveTo(x + 100, 80 - Math.sin(i) * 20, x + 200, 50);
+        ctx.quadraticCurveTo(x + 180, 90, x + 100, 120);
+        ctx.quadraticCurveTo(x, 110, x - 100, 120);
+        ctx.quadraticCurveTo(x - 180, 90, x - 200, 50);
+        ctx.fill();
+    }
+
+    // Stars
+    ctx.fillStyle = '#FFFFFF';
+    for (let i = 0; i < 60; i++) {
+        const x = (i * 37 + offset * 0.05) % canvasWidth;
+        const y = (i * 29) % 120 + 10;
+        ctx.beginPath();
+        ctx.arc(x, y, 1, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Ice mountains/glaciers
+    ctx.fillStyle = '#B0E0E6';
+    for (let i = 0; i < 6; i++) {
+        const x = (i * 400 + offset * 1) % (canvasWidth + 400);
+
+        ctx.beginPath();
+        ctx.moveTo(x - 180, 200);
+        ctx.lineTo(x, 100 + Math.sin(i) * 20);
+        ctx.lineTo(x + 180, 200);
+        ctx.fill();
+
+        // Ice shine
+        ctx.fillStyle = '#E0FFFF';
+        ctx.beginPath();
+        ctx.moveTo(x - 50, 140);
+        ctx.lineTo(x, 100 + Math.sin(i) * 20);
+        ctx.lineTo(x - 20, 160);
+        ctx.fill();
+        ctx.fillStyle = '#B0E0E6';
+    }
+
+    // Ice formations
+    for (let i = 0; i < 15; i++) {
+        const x = (i * 150 + offset * 1.8) % (canvasWidth + 150);
+        ctx.fillStyle = '#ADD8E6';
+
+        ctx.beginPath();
+        ctx.moveTo(x - 15, 200);
+        ctx.lineTo(x, 160);
+        ctx.lineTo(x + 15, 200);
+        ctx.fill();
+
+        // Icicles
+        ctx.fillStyle = '#E0FFFF';
+        ctx.beginPath();
+        ctx.moveTo(x - 5, 180);
+        ctx.lineTo(x, 160);
+        ctx.lineTo(x + 5, 180);
+        ctx.fill();
+    }
+
+    // Snowy ground
+    ctx.fillStyle = '#F0F8FF';
+    ctx.fillRect(0, 200, canvasWidth, 312);
+
+    // Snow drifts
+    ctx.fillStyle = '#FFFFFF';
+    for (let i = 0; i < 12; i++) {
+        const x = (i * 180 + offset * 1.5) % (canvasWidth + 180);
+        ctx.beginPath();
+        ctx.ellipse(x, 200, 60, 15, 0, 0, Math.PI * 2);
+        ctx.fill();
     }
 };

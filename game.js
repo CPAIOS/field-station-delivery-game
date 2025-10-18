@@ -15,7 +15,7 @@ const getDifficultyConfig = (level) => {
         meteorChance: level < 2 ? 0 : Math.min(0.04, 0.005 + (level - 2) * 0.005), // Starts 0.5% at level 2, slower ramp
         puddleChance: Math.min(0.10, 0.03 + (level - 1) * 0.005), // Slower ramp
         monsterChance: level < 4 ? 0 : Math.min(0.008, 0.003 + (level - 4) * 0.001), // Start level 4, slower ramp
-        zombieChance: level < 5 ? 0 : Math.min(0.008, 0.003 + (level - 5) * 0.001), // Start level 5, slower ramp
+        zombieChance: level < 5 ? 0 : Math.min(0.02, 0.008 + (level - 5) * 0.002), // Start level 5, more visible
         maxTraffic: 6 + Math.floor(level / 3), // Fewer cars at once
         maxMeteors: level < 2 ? 0 : Math.min(3, 1 + Math.floor(level / 3)), // Fewer meteors at once
         maxMonsters: level < 4 ? 0 : Math.min(2, 1 + Math.floor(level / 4)), // Fewer monsters at once
